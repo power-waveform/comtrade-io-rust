@@ -27,9 +27,9 @@
 
 ## 剩余外部动作（需用户操作）
 
-- [ ] 推送仓库（`git remote` 为空，需 add origin + push）
-- [ ] GitHub 配置 `CARGO_REGISTRY_TOKEN` secret + `crates-io` environment（release.yml 用）
-- [ ] `cargo publish` 首次发布 **0.0.1**（crate 名已核实可用）
+- [x] 推送仓库（`git remote` 已切 SSH `git@github.com:zhangsonggui/comtrade-io-rust.git`，`master` 已推）
+- [x] GitHub 配置 `CARGO_REGISTRY_TOKEN` secret + `crates-io` environment（release.yml 用，用户已配）
+- [x] `cargo publish` 首次发布 **0.0.1**（2026-08-15 上线，打 tag `v0.0.1` 触发 CI 自动发布）
 - [ ] 删除 `docs/` 下的 PDF（被占用无法删，关闭阅读器/IDE 后执行）
 
 ## 明确搁置 / 超出范围
