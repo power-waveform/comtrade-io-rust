@@ -1,0 +1,5 @@
+docs/
+target/
+.idea/
+.claude/
+/.mcp.json

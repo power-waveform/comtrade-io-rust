@@ -1,0 +1,33 @@
+[package]
+name = "comtrade-io"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "COMTRADE (IEEE C37.111) 故障录波文件解析与导出库"
+license = "MIT"
+authors = ["sanguine (张松贵) <82018238@qq.com>"]
+repository = "https://github.com/zhangsonggui/comtrade-io-rust.git"
+documentation = "https://docs.rs/comtrade-io"
+homepage = "https://github.com/zhangsonggui/comtrade-io-rust"
+readme = "README.md"
+keywords = ["comtrade", "IEEE-C37-111", "power-system", "fault-recording"]
+categories = ["parser-implementations", "science"]
+exclude = [
+    "tests/",
+    "examples/",
+    "docs/",
+    "tasks/",
+    "CLAUDE.md",
+    "rustfmt.toml",
+    ".github/",
+    "scripts/",
+]
+
+[dependencies]
+encoding_rs = "0.8"
+
+[dev-dependencies]
+
+[features]
+default = []
+gbk-builtin = []
