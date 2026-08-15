@@ -12,7 +12,7 @@ jobs:
     # crates.io 发布不可撤销（只能 yank），用 environment 保护 + 手动 approve 防误触发
     environment: crates-io
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: cargo publish
