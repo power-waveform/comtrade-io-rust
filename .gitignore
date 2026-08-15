@@ -1,4 +1,5 @@
-docs/
+# docs/ 下的 rustdoc 帮助文档入库，PDF 规范文件单独忽略（版权）
+/docs/COMTRADE1999补充定义(090917).pdf
 target/
 .idea/
 .claude/

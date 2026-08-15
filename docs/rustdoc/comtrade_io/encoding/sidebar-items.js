@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Encoding"],"fn":["decode","decode_with","detect","encode","read_text","read_text_gbk","write_text"]};

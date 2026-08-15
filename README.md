@@ -14,6 +14,11 @@ COMTRADE（IEEE C37.111）故障录波文件解析与导出库，纯 Rust 实现
 - **往返保真**：各格式 `parse → serialize → reparse` 语义等价；未知内容保留原文
 - **错误即上下文**：统一 `Error` 枚举，解析错误携带行号/偏移，对外不 panic
 
+## 文档
+
+- **API 参考（rustdoc）**：`docs/rustdoc/comtrade_io/index.html`（本地构建：`cargo doc --open`；发布后在线版见 docs.rs）
+- **设计文档**：`docs/rust重构软件设计报告.md` / `docs/rust重构需求分析报告.md`（权威规格）
+
 ## 安装
 
 `Cargo.toml`：
