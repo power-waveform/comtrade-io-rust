@@ -20,7 +20,7 @@ COMTRADE（IEEE C37.111）故障录波文件解析与导出库，纯 Rust 实现
 
 ```toml
 [dependencies]
-comtrade-io = "0.1"
+comtrade-io = "0.0.1"
 ```
 
 > MSRV：Rust 1.75
