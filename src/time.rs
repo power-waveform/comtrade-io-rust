@@ -227,7 +227,13 @@ fn collapse_colon_spaces(s: &str) -> String {
 }
 
 fn normalize_microsecond(s: &str) -> String {
-    if let Some(dot_pos) = s.rfind('.') {
+    // 只处理时间部分（逗号之后）的微秒：取第一个点后的数字段补齐 6 位，多余丢弃。
+    // 对齐 Python `format_time`（`parts[1].ljust(6,"0")[:6]`），但仅限逗号后的点，
+    // 避免误伤点分隔日期（如 `07.04.13,...` 日期部分的点）。
+    let comma_pos = s.find(',');
+    let search_from = comma_pos.map(|c| c + 1).unwrap_or(0);
+    if let Some(rel_dot) = s[search_from..].find('.') {
+        let dot_pos = search_from + rel_dot;
         let after_dot = &s[dot_pos + 1..];
         let digits: String = after_dot
             .chars()
@@ -235,11 +241,7 @@ fn normalize_microsecond(s: &str) -> String {
             .collect();
         if digits.len() < 6 {
             let padded = format!("{:0<6}", digits);
-            let non_digit_start = after_dot
-                .chars()
-                .skip_while(|c| c.is_ascii_digit())
-                .collect::<String>();
-            format!("{}.{}{}", &s[..dot_pos], &padded[..6], non_digit_start)
+            format!("{}.{}", &s[..dot_pos], &padded[..6])
         } else {
             format!("{}.{}", &s[..dot_pos], &digits[..6])
         }
@@ -257,12 +259,17 @@ fn fix_feb29(s: &str) -> String {
 }
 
 /// 时间格式族（按优先级排序，美式优先以匹配 format_cfg 输出）
+///
+/// 对齐 Python 基线 `data_time_parser.py`，并补充实际数据中出现过的
+/// 点分隔日期（如 `07.04.13`）。`%m/%d/%H/%M/%S` 按可变 1-2 位读取，
+/// 与 Python `datetime.strptime` 行为一致。
 const TIME_FORMATS: &[&str] = &[
     "%m/%d/%Y,%H:%M:%S.%f", // 四位年，美国格式（月/日/年）——优先，与 format_cfg 一致
     "%d/%m/%Y,%H:%M:%S.%f", // 四位年，欧洲格式（日/月/年）
     "%m/%d/%y,%H:%M:%S.%f", // 两位年，美国格式（月/日/年）
     "%d/%m/%y,%H:%M:%S.%f", // 两位年，欧洲格式（日/月/年）
     "%m/%d/%Y, %H:%M:%S.%f", // 四位年，美国格式，带空格
+    "%d/%m/%Y, %H:%M:%S.%f", // 四位年，欧洲格式，带空格
     "%Y-%m-%d %H:%M:%S",    // ISO日期格式，无微秒
     "%Y-%m-%d %H:%M:%S.%f", // ISO日期格式，带微秒
     "%Y-%m-%dT%H:%M:%S.%f", // ISO日期格式，T分隔，带微秒
@@ -273,6 +280,9 @@ const TIME_FORMATS: &[&str] = &[
     "%d/%m/%Y %H:%M:%S.%f", // 带微秒的欧洲常用格式
     "%m/%d/%Y %H:%M:%S",    // 美国常用格式，空格分隔
     "%m/%d/%Y %H:%M:%S.%f", // 带微秒的美国常用格式
+    "%m.%d.%y,%H:%M:%S.%f", // 点分隔日期，两位年，美国格式
+    "%d.%m.%y,%H:%M:%S.%f", // 点分隔日期，两位年，欧洲格式
+    "%m.%d.%Y,%H:%M:%S.%f", // 点分隔日期，四位年，美国格式
 ];
 
 fn try_format(s: &str, fmt: &str) -> Option<Result<Timestamp>> {
@@ -350,12 +360,12 @@ fn parse_with_parts(s: &str, parts: &[FmtPart]) -> Option<Timestamp> {
                 pos = new_pos;
             },
             FmtPart::Y => {
-                let (val, new_pos) = read_number(&chars, pos, 4)?;
+                let (val, new_pos) = read_fixed(&chars, pos, 4)?;
                 year = val as u16;
                 pos = new_pos;
             },
             FmtPart::Y2 => {
-                let (val, new_pos) = read_number(&chars, pos, 2)?;
+                let (val, new_pos) = read_fixed(&chars, pos, 2)?;
                 // 00-68 → 2000-2068, 69-99 → 1969-1999
                 year = if val <= 68 {
                     2000 + val as u16
@@ -395,6 +405,24 @@ fn parse_with_parts(s: &str, parts: &[FmtPart]) -> Option<Timestamp> {
 }
 
 fn read_number(chars: &[char], start: usize, digits: usize) -> Option<(u32, usize)> {
+    // 读取 1..=digits 位数字（对齐 Python strptime：月/日/时/分/秒允许 1-2 位）
+    let mut val = 0u32;
+    let mut pos = start;
+    let mut n = 0;
+    while n < digits && pos < chars.len() && chars[pos].is_ascii_digit() {
+        val = val * 10 + (chars[pos] as u32 - '0' as u32);
+        pos += 1;
+        n += 1;
+    }
+    if n == 0 {
+        None
+    } else {
+        Some((val, pos))
+    }
+}
+
+/// 读取恰好 `digits` 位数字（%Y/%y 年份固定位数，避免把两位年误读成四位年）
+fn read_fixed(chars: &[char], start: usize, digits: usize) -> Option<(u32, usize)> {
     let mut val = 0u32;
     let mut pos = start;
     for _ in 0..digits {
@@ -442,6 +470,61 @@ mod tests {
     fn test_parse_short_micro() {
         let ts = parse("01/15/2023,10:30:45.123").unwrap();
         assert_eq!(ts.micro, 123000);
+    }
+
+    #[test]
+    fn test_parse_variable_digits() {
+        // Python strptime 允许 1-2 位数字，本实现对齐（此前固定 2 位导致失败）
+        let ts = parse("1/7/2013,7:18:24.000660").unwrap();
+        assert_eq!(ts.year, 2013);
+        assert_eq!(ts.month, 1);
+        assert_eq!(ts.day, 7);
+        assert_eq!(ts.hour, 7);
+        assert_eq!(ts.minute, 18);
+        assert_eq!(ts.second, 24);
+
+        // 欧洲日期 16/3/2014，时分秒单数字
+        let ts = parse("16/3/2014,13:27:8.000777").unwrap();
+        assert_eq!(ts.day, 16);
+        assert_eq!(ts.month, 3);
+        assert_eq!(ts.second, 8);
+    }
+
+    #[test]
+    fn test_parse_european_with_space() {
+        let ts = parse("13/05/2015, 11:29:10.416750").unwrap();
+        assert_eq!(ts.year, 2015);
+        assert_eq!(ts.month, 5);
+        assert_eq!(ts.day, 13);
+        assert_eq!(ts.hour, 11);
+    }
+
+    #[test]
+    fn test_parse_dot_separated() {
+        // 点分隔日期（部分南瑞设备输出）
+        let ts = parse("07.04.13,03:15:02.051000").unwrap();
+        assert_eq!(ts.year, 2013);
+        assert_eq!(ts.month, 7);
+        assert_eq!(ts.day, 4);
+        assert_eq!(ts.hour, 3);
+    }
+
+    #[test]
+    fn test_parse_two_digit_year() {
+        let ts = parse("05/18/15,14:08:15.890000").unwrap();
+        assert_eq!(ts.year, 2015);
+        assert_eq!(ts.month, 5);
+        assert_eq!(ts.day, 18);
+    }
+
+    #[test]
+    fn test_parse_duplicate_dot_microsecond() {
+        // 设备输出 `05:20:14.45.800000`（重复点）时对齐 Python：取首个点后数字段补 6 位
+        let ts = parse("04/14/14,05:20:14.45.800000").unwrap();
+        assert_eq!(ts.year, 2014);
+        assert_eq!(ts.month, 4);
+        assert_eq!(ts.day, 14);
+        assert_eq!(ts.micro, 450000);
     }
 
     #[test]

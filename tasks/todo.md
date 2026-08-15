@@ -16,6 +16,9 @@
 
 | 日期 | 内容 | 关键验证 |
 |---|---|---|
+| 08-15 | 时间解析兼容：可变位数时分秒、欧式带空格、点分隔日期、两位年固定锚点、畸形微秒容错（`src/time.rs`） | Z:\ 时间解析失败 163→0，新增 7 个单元测试，对齐 Python strptime |
+| 08-15 | CFG 空首行修复：保留空行维持行号，防止通道数行误判为文件头（`src/cfg/mod.rs`） | Z:\2016\2 空首行文件 9 个全部修复，回归测试 |
+| 08-15 | `examples/batch_analyze.rs` 批量分析示例（遍历目录分析所有 CFG，输出站名/通道数/采样点/文件大小/加载与读取耗时至 Tab 日志） | Z:\ 全量 8404 文件：8212 OK + 5 DAT缺失 + 187 解析失败，日志行数一致 |
 | 08-15 | CFF 乱码修复（按段编码探测 + dat_bytes 不 trim） | `test_cff_chinese_channel_name` |
 | 08-15 | 发电机 §1.6 / 励磁机 §1.7（INF + DMF 全链路，全字段） | INF/DMF round-trip 测试 |
 | 08-15 | 发布打包 B1–B4（exclude/License/元数据/名称核实） | `cargo publish --dry-run` 298KiB |

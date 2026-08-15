@@ -181,10 +181,12 @@ impl Config {
     /// 从字符串解析 CFG 配置
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(text: &str) -> Result<Config> {
+        // 保留空行以维持行号不变——Python 基线按 `\n` 直接 split 并保序。
+        // 若过滤空行，设备在首行输出空行（如部分南瑞文件）时，
+        // 通道数行会被误判为文件头，导致整体错位。
         let lines: Vec<&str> = text
             .lines()
             .map(|line| line.trim_end_matches('\r'))
-            .filter(|line| !line.is_empty())
             .collect();
 
         if lines.len() < 10 {
@@ -461,6 +463,31 @@ mod tests {
         assert_eq!(reparsed.channels.analog, config.channels.analog);
         assert_eq!(reparsed.analogs.len(), config.analogs.len());
         assert_eq!(reparsed.start_time, config.start_time);
+    }
+
+    #[test]
+    fn test_empty_first_line_keeps_row_alignment() {
+        // 回归：设备在首行输出空行时（部分南瑞文件），过滤空行会把
+        // 通道数行误判为文件头导致整体错位。空行必须保留以维持行号。
+        let cfg_text = "\
+            \n\
+            2,1A,1D\n\
+            1,Ia,a,0,A,1.0,0.0,0.0,-16384,16384\n\
+            1,D1, , ,0\n\
+            50\n\
+            1\n\
+            1000,317\n\
+            01/15/2016,10:30:45.123456\n\
+            01/15/2016,10:30:45.123456\n\
+            BINARY\n\
+            1.0";
+        let config = Config::from_str(cfg_text).unwrap();
+        assert_eq!(config.channels.analog, 1);
+        assert_eq!(config.channels.status, 1);
+        assert_eq!(config.analogs.len(), 1);
+        assert_eq!(config.sampling.freq, 50.0);
+        // 空首行被当作空 header（station 为空），但后续行必须不错位
+        assert_eq!(config.start_time.year, 2016);
     }
 
     #[test]
