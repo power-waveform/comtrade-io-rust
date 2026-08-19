@@ -851,6 +851,7 @@ pub fn build_equipment_group(inf: &InfFile) -> EquipmentGroup {
                         .and_then(parse_num_with_unit)
                         .map(|v| v.max(0.0) as usize)
                         .unwrap_or(0),
+                    neutral_groups: Vec::new(),
                     oth_achns: section
                         .get("OTH_ACHNS")
                         .map(parse_num_list)
@@ -1237,6 +1238,9 @@ pub fn build_transformer_section(tr: &Transformer) -> Section {
     // 先写各侧 `_PARAM`，再写全部 `TA_Id_#N`，最后写各侧 `_TV_CHNS`——与样本顺序一致
     for w in &tr.windings {
         if let Some(loc) = w.location_kind() {
+            if !loc.has_inf_side() {
+                continue;
+            }
             fields.push((
                 format!("{}_PARAM", loc.inf_prefix()),
                 format!("{}, {:.3}(KV), {}", w.wg, w.v_rtg, w.bran_num),
@@ -1247,6 +1251,9 @@ pub fn build_transformer_section(tr: &Transformer) -> Section {
         let Some(loc) = w.location_kind() else {
             continue;
         };
+        if !loc.has_inf_side() {
+            continue;
+        }
         let slots = loc.ta_id_indices();
         for (i, bran) in w.currents.iter().enumerate() {
             // 分支序号超出该侧可用 `TA_Id_#N` 槽位时丢弃，避免写到别的侧上
@@ -1265,6 +1272,9 @@ pub fn build_transformer_section(tr: &Transformer) -> Section {
         let Some(loc) = w.location_kind() else {
             continue;
         };
+        if !loc.has_inf_side() {
+            continue;
+        }
         let p = loc.inf_prefix();
         if !w.acv.is_empty() {
             fields.push((format!("{}_TV_CHNS", p), fmt_acv(&w.acv)));

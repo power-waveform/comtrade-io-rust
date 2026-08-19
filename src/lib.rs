@@ -54,8 +54,8 @@ pub use dmf::DmfFile;
 pub use encoding::Encoding;
 pub use equipment::{
     AccBran, AcvChn, BranchNum, Bus, Capacitance, EquipmentGroup, Exciter, Generator, Igap,
-    Impedance, Line, MutualInductance, Px, SyncReactance, Transformer, TransformerWinding, Ufe,
-    UfeChns, UnChns, WindingLocation,
+    Impedance, Line, MutualInductance, NeutralGroup, Px, SyncReactance, Transformer,
+    TransformerWinding, Ufe, UfeChns, UnChns, WindingLocation,
 };
 pub use error::{Error, FileRole, Result};
 pub use exporters::{to_csv, to_json, ExportFormat, ExportOptions};

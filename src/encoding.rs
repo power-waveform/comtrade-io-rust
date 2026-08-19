@@ -137,7 +137,7 @@ mod gbk_builtin {
             if b < 0x80 {
                 result.push(b as char);
                 i += 1;
-            } else if b >= 0x81 && b <= 0xFE && i + 1 < bytes.len() {
+            } else if (0x81..=0xFE).contains(&b) && i + 1 < bytes.len() {
                 let b2 = bytes[i + 1];
                 if (0x40..=0x7E).contains(&b2) || (0x80..=0xFE).contains(&b2) {
                     let code = ((b as u32) << 8) | (b2 as u32);

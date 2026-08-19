@@ -24,6 +24,14 @@ pub struct DmfAnalogChannel {
     pub ch_type: String,
     /// 通道标志
     pub flag: String,
+    /// 通道一次侧量程最小值（仅直流类型有效，DL/T 553-2013 表 B.3）
+    pub p_min: f64,
+    /// 通道一次侧量程最大值（仅直流类型有效，DL/T 553-2013 表 B.3）
+    pub p_max: f64,
+    /// 通道二次侧量程最小值（仅直流类型有效，DL/T 553-2013 表 B.3）
+    pub s_min: f64,
+    /// 通道二次侧量程最大值（仅直流类型有效，DL/T 553-2013 表 B.3）
+    pub s_max: f64,
     /// 额定频率（Hz）
     pub freq: f64,
     /// 幅值系数 a
@@ -72,6 +80,8 @@ pub struct DmfFile {
     pub reference: String,
     /// 录波设备名称
     pub rec_dev_name: String,
+    /// 录波装置 RDRE 参引（DL/T 553-2013 表 B.2 `Rec_ref`，可选）
+    pub rec_ref: String,
     /// 模拟通道列表
     pub analogs: Vec<DmfAnalogChannel>,
     /// 状态通道列表

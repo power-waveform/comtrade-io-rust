@@ -283,6 +283,8 @@ pub enum WindingLocation {
     Medium,
     /// 低压侧
     Low,
+    /// 公共绕组（DMF `TransformerWinding location="Common"`，DL/T 553-2013 表 B.8）
+    Common,
 }
 
 impl WindingLocation {
@@ -292,7 +294,13 @@ impl WindingLocation {
             WindingLocation::High => "H",
             WindingLocation::Medium => "M",
             WindingLocation::Low => "L",
+            WindingLocation::Common => "",
         }
+    }
+
+    /// 是否为 INF §1.5 中可映射到 `{H,M,L}_*` 的普通侧。
+    pub fn has_inf_side(&self) -> bool {
+        !matches!(self, WindingLocation::Common)
     }
 
     /// 该侧的 `TA_Id_#N` 分支序号。
@@ -304,6 +312,7 @@ impl WindingLocation {
             WindingLocation::High => &[1, 2],
             WindingLocation::Medium => &[3, 4],
             WindingLocation::Low => &[5, 6, 7],
+            WindingLocation::Common => &[],
         }
     }
 
@@ -313,6 +322,7 @@ impl WindingLocation {
             WindingLocation::High => "High",
             WindingLocation::Medium => "Medium",
             WindingLocation::Low => "Low",
+            WindingLocation::Common => "Common",
         }
     }
 
@@ -322,6 +332,7 @@ impl WindingLocation {
             "high" | "h" => Some(WindingLocation::High),
             "medium" | "middle" | "m" => Some(WindingLocation::Medium),
             "low" | "l" => Some(WindingLocation::Low),
+            "common" | "c" => Some(WindingLocation::Common),
             _ => None,
         }
     }
@@ -424,6 +435,17 @@ pub struct UnChns {
     pub longitudinal: usize,
 }
 
+/// 发电机中性点分支组（DMF `NeutGroup`，DL/T 553-2013 表 B.9）
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct NeutralGroup {
+    /// 中性点分支组序号
+    pub group_idx: usize,
+    /// 该分支组分支数
+    pub bran_num: usize,
+    /// 中性点分支电流通道
+    pub current: AccBran,
+}
+
 /// 发电机（规范 §1.6 `[ZYHD POWER_#n]`）
 #[derive(Debug, Clone, Default)]
 pub struct Generator {
@@ -479,6 +501,8 @@ pub struct Generator {
     pub un_chns: UnChns,
     /// 零序横差 TA 通道（`TA_Ido_CHN=Ido`）
     pub ta_ido_chn: usize,
+    /// DMF `NeutGroup` 中性点分支组（DL/T 553-2013 表 B.9，最多 30 组）
+    pub neutral_groups: Vec<NeutralGroup>,
     /// 其他相关模拟量通道（`OTH_ACHNS`）
     pub oth_achns: Vec<usize>,
     /// 开关量通道（`STATUS_CHNS`）

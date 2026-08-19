@@ -62,6 +62,55 @@ fn push_acc(lines: &mut Vec<String>, level: usize, bran: &AccBran) {
     ));
 }
 
+fn dir_text(bran: &AccBran) -> String {
+    if !bran.dir_raw.is_empty() {
+        escape(&bran.dir_raw)
+    } else if bran.dir < 0 {
+        "NEG".to_string()
+    } else {
+        "POS".to_string()
+    }
+}
+
+/// 写出 DL/T 553-2013 表 B.9/B.10 的三相电流通道子元素。
+fn push_phase_acc(lines: &mut Vec<String>, level: usize, tag: &str, bran: &AccBran) {
+    if bran.is_empty() {
+        return;
+    }
+    lines.push(format!(
+        r#"{}<scl:{} ia_idx="{}" ib_idx="{}" ic_idx="{}" dir="{}"/>"#,
+        indent(level),
+        tag,
+        bran.ia_idx,
+        bran.ib_idx,
+        bran.ic_idx,
+        dir_text(bran),
+    ));
+}
+
+fn push_neutral_group(
+    lines: &mut Vec<String>,
+    level: usize,
+    group_idx: usize,
+    bran_num: usize,
+    bran: &AccBran,
+) {
+    if bran_num == 0 && bran.is_empty() {
+        return;
+    }
+    lines.push(format!(
+        r#"{}<scl:NeutGroup group_idx="{}" bran_num="{}" bran_idx="{}" ia_idx="{}" ib_idx="{}" ic_idx="{}" dir="{}"/>"#,
+        indent(level),
+        group_idx,
+        bran_num,
+        bran.bran_idx,
+        bran.ia_idx,
+        bran.ib_idx,
+        bran.ic_idx,
+        dir_text(bran),
+    ));
+}
+
 /// 写出 `Igap` 子元素。全零时跳过。
 fn push_igap(lines: &mut Vec<String>, level: usize, igap: &Igap) {
     if igap.zgap_idx == 0 && igap.zsgap_idx == 0 {
@@ -95,13 +144,16 @@ pub fn write_dmf(dmf: &DmfFile) -> String {
     lines.push(r#"<?xml version="1.0" encoding="UTF-8"?>"#.to_string());
 
     // 根元素
-    let root_attrs = format!(
+    let mut root_attrs = format!(
         r#"station_name="{}" version="{}" reference="{}" rec_dev_name="{}""#,
         escape(&dmf.station_name),
         escape(&dmf.version),
         escape(&dmf.reference),
         escape(&dmf.rec_dev_name),
     );
+    if !dmf.rec_ref.is_empty() {
+        root_attrs.push_str(&format!(r#" Rec_ref="{}""#, escape(&dmf.rec_ref)));
+    }
     lines.push(format!(r#"<scl:ComtradeModel {}>"#, root_attrs));
 
     // 模拟通道
@@ -109,11 +161,15 @@ pub fn write_dmf(dmf: &DmfFile) -> String {
     // 该字段当前未建模，固定写 0。
     for ch in &dmf.analogs {
         lines.push(format!(
-            r#"	<scl:AnalogChannel idx_cfg="{}" idx_org="{}" type="{}" flag="{}" freq="{}" au="{}" bu="{}" sIUnit="{}" multiplier="{}" primary="{}" secondary="{}" ps="{}" idx_rlt="0" ph="{}"/>"#,
+            r#"	<scl:AnalogChannel idx_cfg="{}" idx_org="{}" type="{}" flag="{}" p_min="{}" p_max="{}" s_min="{}" s_max="{}" freq="{}" au="{}" bu="{}" sIUnit="{}" multiplier="{}" primary="{}" secondary="{}" ps="{}" idx_rlt="0" ph="{}"/>"#,
             ch.idx_cfg,
             ch.idx_org,
             escape(&ch.ch_type),
             escape(&ch.flag),
+            ch.p_min,
+            ch.p_max,
+            ch.s_min,
+            ch.s_max,
             ch.freq,
             ch.au,
             ch.bu,
@@ -276,8 +332,16 @@ pub fn write_dmf(dmf: &DmfFile) -> String {
 
     // 发电机（§1.6）
     for g in &dmf.generators {
+        let neut_group_num = if !g.neutral_groups.is_empty() {
+            g.neutral_groups.len()
+        } else {
+            [g.branch_num.z1, g.branch_num.z2, g.branch_num.z3]
+                .into_iter()
+                .filter(|v| *v > 0)
+                .count()
+        };
         let open = format!(
-            r#"	<scl:Generator idx="{}" gen_name="{}" srcRef="{}" sys_ID="{}" trm_ID="{}" object_type="{}" freq="{}" capacity="{}" factor="{}" V1="{}" branch_z1="{}" branch_z2="{}" branch_z3="{}" rotor_I="{}" rotor_V2="{}" ufe_rated="{}" ufe_no_load="{}" xd="{}" xq="{}" xd_prime="{}" xs="{}" excitation_mode="{}" igt_dir="{}" ufe_chn="{}" pos_ufe_chn="{}" neg_ufe_chn="{}" ife_chn="{}" un_terminal="{}" un_neutral="{}" un_longitudinal="{}" ta_ido_chn="{}""#,
+            r#"	<scl:Generator idx="{}" gen_name="{}" srcRef="{}" sys_ID="{}" trm_SID="{}" type="{}" freq="{}" capacity="{}" factor="{}" VRtg="{}" rotor_I="{}" rotor_V2="{}" neut_group_num="{}" exciter_Mode="{}" igt_Dir="{}""#,
             g.idx,
             escape(&g.name),
             escape(&g.src_ref),
@@ -288,33 +352,32 @@ pub fn write_dmf(dmf: &DmfFile) -> String {
             g.capacity,
             g.factor,
             g.v1,
-            g.branch_num.z1,
-            g.branch_num.z2,
-            g.branch_num.z3,
             g.rotor_i,
             g.rotor_v2,
-            g.ufe.rated,
-            g.ufe.no_load,
-            g.x.xd,
-            g.x.xq,
-            g.x.xd_prime,
-            g.x.xs,
+            neut_group_num,
             g.excitation_mode,
             g.igt_dir,
-            g.ufe_chns.ufe,
-            g.ufe_chns.pos,
-            g.ufe_chns.neg,
-            g.ife_chn,
-            g.un_chns.terminal,
-            g.un_chns.neutral,
-            g.un_chns.longitudinal,
-            g.ta_ido_chn,
         );
+        let has_ufe = g.ufe.rated != 0.0 || g.ufe.no_load != 0.0;
+        let has_x = g.x.xd != 0.0 || g.x.xq != 0.0 || g.x.xd_prime != 0.0 || g.x.xs != 0.0;
+        let has_ufe_chns = g.ufe_chns.ufe != 0 || g.ufe_chns.pos != 0 || g.ufe_chns.neg != 0;
+        let has_un_chns =
+            g.un_chns.terminal != 0 || g.un_chns.neutral != 0 || g.un_chns.longitudinal != 0;
         let has_children = !g.acv.is_empty()
             || !g.ta.is_empty()
             || !g.ta_z1.is_empty()
             || !g.ta_z2.is_empty()
             || !g.ta_z3.is_empty()
+            || has_ufe
+            || has_x
+            || has_ufe_chns
+            || g.ife_chn != 0
+            || has_un_chns
+            || g.ta_ido_chn != 0
+            || !g.neutral_groups.is_empty()
+            || g.branch_num.z1 != 0
+            || g.branch_num.z2 != 0
+            || g.branch_num.z3 != 0
             || !g.oth_achns.is_empty()
             || !g.sta_chns.is_empty();
         if !has_children {
@@ -322,20 +385,55 @@ pub fn write_dmf(dmf: &DmfFile) -> String {
             continue;
         }
         lines.push(format!("{}>", open));
+        if has_ufe {
+            lines.push(format!(
+                r#"		<scl:Ufe ufe="{}" no_load="{}"/>"#,
+                g.ufe.rated, g.ufe.no_load,
+            ));
+        }
+        if has_x {
+            lines.push(format!(
+                r#"		<scl:X xd="{}" xq="{}" xd1="{}" xs="{}"/>"#,
+                g.x.xd, g.x.xq, g.x.xd_prime, g.x.xs,
+            ));
+        }
         push_acv(&mut lines, 2, &g.acv);
-        // TA 通道组：bran_idx 对应解析时的分派槽位
-        let write_ta = |lines: &mut Vec<String>, bran: &AccBran, bran_idx: usize| {
-            if bran.is_empty() {
-                return;
+        push_phase_acc(&mut lines, 2, "ACCCChn", &g.ta);
+        if !g.neutral_groups.is_empty() {
+            for ng in &g.neutral_groups {
+                push_neutral_group(&mut lines, 2, ng.group_idx, ng.bran_num, &ng.current);
             }
-            let mut b = bran.clone();
-            b.bran_idx = bran_idx;
-            push_acc(lines, 2, &b);
-        };
-        write_ta(&mut lines, &g.ta, 1);
-        write_ta(&mut lines, &g.ta_z1, 2);
-        write_ta(&mut lines, &g.ta_z2, 3);
-        write_ta(&mut lines, &g.ta_z3, 4);
+        } else if g.branch_num.z1 != 0 || g.branch_num.z2 != 0 || g.branch_num.z3 != 0 {
+            push_neutral_group(&mut lines, 2, 1, g.branch_num.z1, &g.ta_z1);
+            push_neutral_group(&mut lines, 2, 2, g.branch_num.z2, &g.ta_z2);
+            push_neutral_group(&mut lines, 2, 3, g.branch_num.z3, &g.ta_z3);
+        } else {
+            push_phase_acc(&mut lines, 2, "ACCZChn", &g.ta_z1);
+        }
+        if has_ufe_chns {
+            lines.push(format!(
+                r#"		<scl:Ufe_Chns ufe_idx="{}" posufe_idx="{}" negufe_idx="{}"/>"#,
+                g.ufe_chns.ufe, g.ufe_chns.pos, g.ufe_chns.neg,
+            ));
+        }
+        if g.ife_chn != 0 {
+            lines.push(format!(r#"		<scl:Ife_Chn ife_idx="{}"/>"#, g.ife_chn));
+        }
+        if g.un_chns.terminal != 0 || g.un_chns.neutral != 0 {
+            lines.push(format!(
+                r#"		<scl:ACV_Z0 z0_idx="{}" terminal_idx="{}"/>"#,
+                g.un_chns.neutral, g.un_chns.terminal
+            ));
+        }
+        if g.un_chns.longitudinal != 0 {
+            lines.push(format!(
+                r#"		<scl:ACV_ZZ0 zz0_idx="{}"/>"#,
+                g.un_chns.longitudinal
+            ));
+        }
+        if g.ta_ido_chn != 0 {
+            lines.push(format!(r#"		<scl:ACC_Id0 id0_idx="{}"/>"#, g.ta_ido_chn));
+        }
         push_chn_refs(&mut lines, 2, "AnaChn", &g.oth_achns);
         push_chn_refs(&mut lines, 2, "StaChn", &g.sta_chns);
         lines.push("	</scl:Generator>".to_string());
@@ -344,7 +442,7 @@ pub fn write_dmf(dmf: &DmfFile) -> String {
     // 励磁机（§1.7）
     for e in &dmf.exciters {
         let open = format!(
-            r#"	<scl:Exciter idx="{}" exc_name="{}" srcRef="{}" sys_ID="{}" pwr_ID="{}" object_type="{}" freq="{}" V1="{}""#,
+            r#"	<scl:Exciter idx="{}" exc_name="{}" srcRef="{}" sys_ID="{}" gen_SID="{}" type="{}" freq="{}" VRtg="{}""#,
             e.idx,
             escape(&e.name),
             escape(&e.src_ref),
@@ -365,16 +463,8 @@ pub fn write_dmf(dmf: &DmfFile) -> String {
         }
         lines.push(format!("{}>", open));
         push_acv(&mut lines, 2, &e.acv);
-        let write_ta = |lines: &mut Vec<String>, bran: &AccBran, bran_idx: usize| {
-            if bran.is_empty() {
-                return;
-            }
-            let mut b = bran.clone();
-            b.bran_idx = bran_idx;
-            push_acc(lines, 2, &b);
-        };
-        write_ta(&mut lines, &e.ta, 1);
-        write_ta(&mut lines, &e.ta_z, 2);
+        push_phase_acc(&mut lines, 2, "ACCChn", &e.ta);
+        push_phase_acc(&mut lines, 2, "ACCZChn", &e.ta_z);
         push_chn_refs(&mut lines, 2, "AnaChn", &e.oth_achns);
         push_chn_refs(&mut lines, 2, "StaChn", &e.sta_chns);
         lines.push("	</scl:Exciter>".to_string());

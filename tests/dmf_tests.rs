@@ -1,6 +1,6 @@
 //! DMF 设备模型文件集成测试
 
-use comtrade_io::DmfFile;
+use comtrade_io::{DmfFile, WindingLocation};
 
 fn data_path(name: &str) -> String {
     format!("tests/data/{}", name)
@@ -253,4 +253,100 @@ fn test_dmf_generator_exciter_round_trip() {
     assert_eq!(e1.acv, e2.acv);
     assert_eq!(e1.ta, e2.ta);
     assert_eq!(e1.ta_z, e2.ta_z);
+}
+
+#[test]
+fn test_dmf_dl_t553_standard_elements() {
+    // 依据 DL/T 553-2013 附录 B：标准 DMF 使用 Rec_ref、Common 绕组、
+    // Generator/Exciter 的标准属性名及子元素。
+    let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<scl:ComtradeModel station_name="S" version="1.0" reference="1" rec_dev_name="R" Rec_ref="IED/RDRE1">
+    <scl:AnalogChannel idx_cfg="1" idx_org="11" type="D" flag="AMP" p_min="-5" p_max="5" s_min="-1" s_max="1" freq="0" au="2" bu="3" sIUnit="A" multiplier="k" primary="1000" secondary="1" ps="P"/>
+    <scl:Transformer idx="3" trm_name="AT1" srcRef="T/ref" pwrRtg="240">
+        <scl:TransformerWinding location="Common" srcRef="CW/ref" VRtg="110" ARtg="1200" bran_num="1" bus_ID="9" wG="yn0">
+            <scl:ACC_Bran bran_idx="1" ia_idx="21" ib_idx="22" ic_idx="23" dir="POS"/>
+        </scl:TransformerWinding>
+    </scl:Transformer>
+    <scl:Generator idx="5" gen_name="G1" srcRef="G/ref" sys_ID="SYS-G" trm_SID="3,AT1" type="STEAM_TURBINE" freq="50" capacity="300" factor="0.85" VRtg="20" rotor_I="1800" rotor_V2="75" neut_group_num="2" exciter_Mode="2" igt_Dir="1">
+        <scl:Ufe ufe="100" no_load="50"/>
+        <scl:X xd="1.8" xq="1.7" xd1="0.3" xs="0.1"/>
+        <scl:ACCCChn ia_idx="31" ib_idx="32" ic_idx="33" dir="POS"/>
+        <scl:ACCZChn ia_idx="34" ib_idx="35" ic_idx="36" dir="NEG"/>
+        <scl:NeutGroup group_idx="2" bran_num="3" ia_idx="37" ib_idx="38" ic_idx="39" dir="POS"/>
+        <scl:Ufe_Chns ufe_idx="40" posufe_idx="41" negufe_idx="42"/>
+        <scl:Ife_Chn ife_idx="43"/>
+        <scl:ACV_Z0 z0_idx="44" terminal_idx="45"/>
+        <scl:ACV_ZZ0 zz0_idx="46"/>
+        <scl:ACC_Id0 id0_idx="47"/>
+    </scl:Generator>
+    <scl:Exciter idx="6" exc_name="E1" srcRef="E/ref" sys_ID="SYS-E" gen_SID="5,G1" type="PRIMARY" freq="100" VRtg="0.5">
+        <scl:ACVChn ua_idx="51" ub_idx="52" uc_idx="53"/>
+        <scl:ACCChn ia_idx="54" ib_idx="55" ic_idx="56" dir="POS"/>
+        <scl:ACCZChn ia_idx="57" ib_idx="58" ic_idx="59" dir="NEG"/>
+    </scl:Exciter>
+</scl:ComtradeModel>"#;
+
+    let dmf = DmfFile::from_str(xml).unwrap();
+    assert_eq!(dmf.rec_ref, "IED/RDRE1");
+    assert_eq!(dmf.analogs[0].p_min, -5.0);
+    assert_eq!(dmf.analogs[0].p_max, 5.0);
+    assert_eq!(dmf.analogs[0].s_min, -1.0);
+    assert_eq!(dmf.analogs[0].s_max, 1.0);
+
+    let common = &dmf.transformers[0].windings[0];
+    assert_eq!(common.location_kind(), Some(WindingLocation::Common));
+    assert_eq!(common.location, "Common");
+    assert_eq!(common.currents[0].ia_idx, 21);
+
+    let g = &dmf.generators[0];
+    assert_eq!(g.trm_id, "3,AT1");
+    assert_eq!(g.object_type, "STEAM_TURBINE");
+    assert_eq!(g.v1, 20.0);
+    assert_eq!((g.ufe.rated, g.ufe.no_load), (100.0, 50.0));
+    assert_eq!((g.x.xd, g.x.xq, g.x.xd_prime, g.x.xs), (1.8, 1.7, 0.3, 0.1));
+    assert_eq!((g.ta.ia_idx, g.ta.dir), (31, 1));
+    assert_eq!((g.ta_z1.ia_idx, g.ta_z1.dir), (34, -1));
+    assert_eq!(g.neutral_groups.len(), 1);
+    assert_eq!(g.neutral_groups[0].group_idx, 2);
+    assert_eq!(g.neutral_groups[0].bran_num, 3);
+    assert_eq!(g.branch_num.z2, 3);
+    assert_eq!(
+        (g.ufe_chns.ufe, g.ufe_chns.pos, g.ufe_chns.neg),
+        (40, 41, 42)
+    );
+    assert_eq!(g.ife_chn, 43);
+    assert_eq!(
+        (
+            g.un_chns.terminal,
+            g.un_chns.neutral,
+            g.un_chns.longitudinal
+        ),
+        (45, 44, 46)
+    );
+    assert_eq!(g.ta_ido_chn, 47);
+
+    let e = &dmf.exciters[0];
+    assert_eq!(e.pwr_id, "5,G1");
+    assert_eq!(e.object_type, "PRIMARY");
+    assert_eq!(e.v1, 0.5);
+    assert_eq!((e.ta.ia_idx, e.ta_z.ia_idx), (54, 57));
+
+    let text = dmf.to_string();
+    assert!(text.contains(r#"Rec_ref="IED/RDRE1""#));
+    assert!(text.contains("<scl:ACCCChn"));
+    assert!(text.contains("<scl:NeutGroup"));
+    assert!(text.contains(r#"location="Common""#));
+    assert!(text.contains(r#"gen_SID="5,G1""#));
+
+    let reparsed = DmfFile::from_str(&text).unwrap();
+    assert_eq!(reparsed.rec_ref, dmf.rec_ref);
+    assert_eq!(
+        reparsed.transformers[0].windings[0].location_kind(),
+        Some(WindingLocation::Common)
+    );
+    assert_eq!(
+        reparsed.generators[0].neutral_groups,
+        dmf.generators[0].neutral_groups
+    );
+    assert_eq!(reparsed.exciters[0].ta_z, dmf.exciters[0].ta_z);
 }

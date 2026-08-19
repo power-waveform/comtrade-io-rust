@@ -5,7 +5,7 @@
 
 use crate::equipment::{
     AccBran, AcvChn, BranchNum, Capacitance, Exciter, Generator, Igap, Impedance, MutualInductance,
-    Px, SyncReactance, Ufe, UfeChns, UnChns,
+    NeutralGroup, Px, SyncReactance, Ufe, UfeChns, UnChns,
 };
 use crate::error::{Error, Result};
 
@@ -254,9 +254,20 @@ fn attr<'a>(attrs: &'a [(&str, &str)], name: &str) -> Option<&'a str> {
     attrs.iter().find(|(k, _)| *k == name).map(|(_, v)| *v)
 }
 
+/// 属性别名查表：优先读取规范名，其次兼容历史实现名。
+fn attr_any<'a>(attrs: &'a [(&str, &str)], names: &[&str]) -> Option<&'a str> {
+    names.iter().find_map(|name| attr(attrs, name))
+}
+
 /// 读取整型属性，缺失/非法/空串均为 0
 fn attr_usize(attrs: &[(&str, &str)], name: &str) -> usize {
     attr(attrs, name)
+        .and_then(|v| v.trim().parse().ok())
+        .unwrap_or(0)
+}
+
+fn attr_usize_any(attrs: &[(&str, &str)], names: &[&str]) -> usize {
+    attr_any(attrs, names)
         .and_then(|v| v.trim().parse().ok())
         .unwrap_or(0)
 }
@@ -268,9 +279,19 @@ fn attr_f64(attrs: &[(&str, &str)], name: &str, default: f64) -> f64 {
         .unwrap_or(default)
 }
 
+fn attr_f64_any(attrs: &[(&str, &str)], names: &[&str], default: f64) -> f64 {
+    attr_any(attrs, names)
+        .and_then(|v| v.trim().parse().ok())
+        .unwrap_or(default)
+}
+
 /// 读取字符串属性
 fn attr_str(attrs: &[(&str, &str)], name: &str) -> String {
     attr(attrs, name).unwrap_or("").to_string()
+}
+
+fn attr_str_any(attrs: &[(&str, &str)], names: &[&str]) -> String {
+    attr_any(attrs, names).unwrap_or("").to_string()
 }
 
 /// 当前所处的设备容器。
@@ -313,6 +334,7 @@ pub fn parse_dmf(bytes: &[u8]) -> Result<DmfFile> {
                         dmf.version = attr_str(&attrs, "version");
                         dmf.reference = attr_str(&attrs, "reference");
                         dmf.rec_dev_name = attr_str(&attrs, "rec_dev_name");
+                        dmf.rec_ref = attr_str_any(&attrs, &["Rec_ref", "rec_ref"]);
                     },
                     "AnalogChannel" => {
                         dmf.analogs.push(parse_analog_attrs(&attrs));
@@ -507,6 +529,116 @@ pub fn parse_dmf(bytes: &[u8]) -> Result<DmfFile> {
                             }
                         }
                     },
+                    "Ufe" => {
+                        if matches!(stack.last(), Some(Container::Generator)) {
+                            if let Some(ref mut g) = current_generator {
+                                g.ufe = parse_ufe_attrs(&attrs);
+                            }
+                        }
+                    },
+                    "X" => {
+                        if matches!(stack.last(), Some(Container::Generator)) {
+                            if let Some(ref mut g) = current_generator {
+                                g.x = parse_sync_attrs(&attrs);
+                            }
+                        }
+                    },
+                    "ACCCChn" | "ACCChn" => {
+                        let acc = parse_acc_attrs_with_default(&attrs, 1);
+                        match stack.last() {
+                            Some(Container::Generator) => {
+                                if let Some(ref mut g) = current_generator {
+                                    g.ta = acc;
+                                }
+                            },
+                            Some(Container::Exciter) => {
+                                if let Some(ref mut e) = current_exciter {
+                                    e.ta = acc;
+                                }
+                            },
+                            _ => {},
+                        }
+                    },
+                    "ACCZChn" => {
+                        let acc = parse_acc_attrs_with_default(&attrs, 2);
+                        match stack.last() {
+                            Some(Container::Generator) => {
+                                if let Some(ref mut g) = current_generator {
+                                    g.ta_z1 = acc;
+                                }
+                            },
+                            Some(Container::Exciter) => {
+                                if let Some(ref mut e) = current_exciter {
+                                    e.ta_z = acc;
+                                }
+                            },
+                            _ => {},
+                        }
+                    },
+                    "NeutGroup" => {
+                        if matches!(stack.last(), Some(Container::Generator)) {
+                            if let Some(ref mut g) = current_generator {
+                                let ng = parse_neutral_group_attrs(&attrs);
+                                match ng.group_idx {
+                                    1 => {
+                                        g.branch_num.z1 = ng.bran_num;
+                                        g.ta_z1 = ng.current.clone();
+                                    },
+                                    2 => {
+                                        g.branch_num.z2 = ng.bran_num;
+                                        g.ta_z2 = ng.current.clone();
+                                    },
+                                    3 => {
+                                        g.branch_num.z3 = ng.bran_num;
+                                        g.ta_z3 = ng.current.clone();
+                                    },
+                                    _ => {},
+                                }
+                                g.neutral_groups.push(ng);
+                            }
+                        }
+                    },
+                    "Ufe_Chns" | "Ufe_CHNS" => {
+                        if matches!(stack.last(), Some(Container::Generator)) {
+                            if let Some(ref mut g) = current_generator {
+                                g.ufe_chns = parse_ufe_chns_attrs(&attrs);
+                            }
+                        }
+                    },
+                    "Ife_Chn" | "Ife_CHN" => {
+                        if matches!(stack.last(), Some(Container::Generator)) {
+                            if let Some(ref mut g) = current_generator {
+                                g.ife_chn =
+                                    attr_usize_any(&attrs, &["ife_idx", "Ife_idx", "idx_cfg"]);
+                            }
+                        }
+                    },
+                    "ACV_Z0" => {
+                        if matches!(stack.last(), Some(Container::Generator)) {
+                            if let Some(ref mut g) = current_generator {
+                                g.un_chns.terminal =
+                                    attr_usize_any(&attrs, &["terminal_idx", "un_terminal"]);
+                                g.un_chns.neutral =
+                                    attr_usize_any(&attrs, &["z0_idx", "Z0_idx", "idx_cfg"]);
+                            }
+                        }
+                    },
+                    "ACV_ZZ0" => {
+                        if matches!(stack.last(), Some(Container::Generator)) {
+                            if let Some(ref mut g) = current_generator {
+                                g.un_chns.longitudinal =
+                                    attr_usize_any(&attrs, &["zz0_idx", "ZZ0_idx", "idx_cfg"]);
+                            }
+                        }
+                    },
+                    "ACC_Id0" | "TA_Ido_CHN" => {
+                        if matches!(stack.last(), Some(Container::Generator)) {
+                            if let Some(ref mut g) = current_generator {
+                                g.ta_ido_chn =
+                                    attr_usize_any(&attrs, &["id0_idx", "Id0_idx", "idx_cfg"]);
+                            }
+                        }
+                    },
                     "Igap" => {
                         if matches!(stack.last(), Some(Container::Winding)) {
                             if let Some(ref mut w) = current_winding {
@@ -669,6 +801,51 @@ fn parse_acc_attrs(attrs: &[(&str, &str)]) -> AccBran {
     }
 }
 
+fn parse_acc_attrs_with_default(attrs: &[(&str, &str)], default_bran_idx: usize) -> AccBran {
+    let mut acc = parse_acc_attrs(attrs);
+    if acc.bran_idx == 0 {
+        acc.bran_idx = default_bran_idx;
+    }
+    acc
+}
+
+fn parse_ufe_attrs(attrs: &[(&str, &str)]) -> Ufe {
+    Ufe {
+        rated: attr_f64_any(attrs, &["ufe", "Ufe", "rated", "ufe_rated"], 0.0),
+        no_load: attr_f64_any(
+            attrs,
+            &["no_load", "Ufe_NoLoad", "ufe_no_load", "ufe_noload"],
+            0.0,
+        ),
+    }
+}
+
+fn parse_sync_attrs(attrs: &[(&str, &str)]) -> SyncReactance {
+    SyncReactance {
+        xd: attr_f64(attrs, "xd", 0.0),
+        xq: attr_f64(attrs, "xq", 0.0),
+        xd_prime: attr_f64_any(attrs, &["xd1", "xd_prime", "xd_p"], 0.0),
+        xs: attr_f64(attrs, "xs", 0.0),
+    }
+}
+
+fn parse_ufe_chns_attrs(attrs: &[(&str, &str)]) -> UfeChns {
+    UfeChns {
+        ufe: attr_usize_any(attrs, &["ufe_idx", "ufe_chn", "idx_cfg"]),
+        pos: attr_usize_any(attrs, &["posufe_idx", "pos_ufe_chn", "pos_idx"]),
+        neg: attr_usize_any(attrs, &["negufe_idx", "neg_ufe_chn", "neg_idx"]),
+    }
+}
+
+fn parse_neutral_group_attrs(attrs: &[(&str, &str)]) -> NeutralGroup {
+    let group_idx = attr_usize(attrs, "group_idx");
+    NeutralGroup {
+        group_idx,
+        bran_num: attr_usize(attrs, "bran_num"),
+        current: parse_acc_attrs_with_default(attrs, group_idx),
+    }
+}
+
 /// 归一化方向标志。
 ///
 /// DMF 用 `POS` / `NEG`（样本中大小写不一），INF 用 `1` / `-1`（规范 §1.4）。
@@ -695,6 +872,10 @@ fn parse_analog_attrs(attrs: &[(&str, &str)]) -> DmfAnalogChannel {
             "idx_org" => ch.idx_org = value.parse().unwrap_or(0),
             "type" => ch.ch_type = value.to_string(),
             "flag" => ch.flag = value.to_string(),
+            "p_min" => ch.p_min = value.parse().unwrap_or(0.0),
+            "p_max" => ch.p_max = value.parse().unwrap_or(0.0),
+            "s_min" => ch.s_min = value.parse().unwrap_or(0.0),
+            "s_max" => ch.s_max = value.parse().unwrap_or(0.0),
             "freq" => ch.freq = value.parse().unwrap_or(50.0),
             "au" => ch.au = value.parse().unwrap_or(0.0),
             "bu" => ch.bu = value.parse().unwrap_or(0.0),
@@ -813,20 +994,19 @@ fn parse_winding_attrs(attrs: &[(&str, &str)]) -> TransformerWinding {
     }
 }
 
-/// 解析发电机属性（§1.6）。DMF 对发电机/励磁机的元素与属性命名规范未定义，
-/// 此处按与现有 Bus/Line 风格一致的属性名读取。
+/// 解析发电机属性（DL/T 553-2013 表 B.9），并兼容早期扁平化字段名。
 fn parse_generator_attrs(attrs: &[(&str, &str)]) -> Generator {
     Generator {
         idx: attr_usize(attrs, "idx"),
         name: attr_str(attrs, "gen_name"),
         src_ref: attr_str(attrs, "srcRef"),
         sys_id: attr_str(attrs, "sys_ID"),
-        trm_id: attr_str(attrs, "trm_ID"),
-        object_type: attr_str(attrs, "object_type"),
+        trm_id: attr_str_any(attrs, &["trm_SID", "trm_ID"]),
+        object_type: attr_str_any(attrs, &["type", "object_type"]),
         freq: attr_f64(attrs, "freq", 0.0),
         capacity: attr_f64(attrs, "capacity", 0.0),
         factor: attr_f64(attrs, "factor", 0.0),
-        v1: attr_f64(attrs, "V1", 0.0),
+        v1: attr_f64_any(attrs, &["VRtg", "V1"], 0.0),
         branch_num: BranchNum {
             z1: attr_usize(attrs, "branch_z1"),
             z2: attr_usize(attrs, "branch_z2"),
@@ -835,19 +1015,14 @@ fn parse_generator_attrs(attrs: &[(&str, &str)]) -> Generator {
         rotor_i: attr_f64(attrs, "rotor_I", 0.0),
         rotor_v2: attr_f64(attrs, "rotor_V2", 0.0),
         ufe: Ufe {
-            rated: attr_f64(attrs, "ufe_rated", 0.0),
+            rated: attr_f64_any(attrs, &["ufe_rated", "ufe"], 0.0),
             no_load: attr_f64(attrs, "ufe_no_load", 0.0),
         },
-        x: SyncReactance {
-            xd: attr_f64(attrs, "xd", 0.0),
-            xq: attr_f64(attrs, "xq", 0.0),
-            xd_prime: attr_f64(attrs, "xd_prime", 0.0),
-            xs: attr_f64(attrs, "xs", 0.0),
-        },
-        excitation_mode: attr(attrs, "excitation_mode")
+        x: parse_sync_attrs(attrs),
+        excitation_mode: attr_any(attrs, &["exciter_Mode", "excitation_mode"])
             .and_then(|v| v.trim().parse::<i32>().ok())
             .unwrap_or(0),
-        igt_dir: attr(attrs, "igt_dir")
+        igt_dir: attr_any(attrs, &["igt_Dir", "igt_dir"])
             .and_then(|v| v.trim().parse::<i32>().ok())
             .unwrap_or(0),
         acv: AcvChn::default(),
@@ -855,18 +1030,15 @@ fn parse_generator_attrs(attrs: &[(&str, &str)]) -> Generator {
         ta_z1: AccBran::default(),
         ta_z2: AccBran::default(),
         ta_z3: AccBran::default(),
-        ufe_chns: UfeChns {
-            ufe: attr_usize(attrs, "ufe_chn"),
-            pos: attr_usize(attrs, "pos_ufe_chn"),
-            neg: attr_usize(attrs, "neg_ufe_chn"),
-        },
-        ife_chn: attr_usize(attrs, "ife_chn"),
+        ufe_chns: parse_ufe_chns_attrs(attrs),
+        ife_chn: attr_usize_any(attrs, &["ife_chn", "ife_idx", "Ife_idx"]),
         un_chns: UnChns {
             terminal: attr_usize(attrs, "un_terminal"),
-            neutral: attr_usize(attrs, "un_neutral"),
-            longitudinal: attr_usize(attrs, "un_longitudinal"),
+            neutral: attr_usize_any(attrs, &["un_neutral", "z0_idx"]),
+            longitudinal: attr_usize_any(attrs, &["un_longitudinal", "zz0_idx"]),
         },
-        ta_ido_chn: attr_usize(attrs, "ta_ido_chn"),
+        ta_ido_chn: attr_usize_any(attrs, &["ta_ido_chn", "id0_idx"]),
+        neutral_groups: Vec::new(),
         oth_achns: Vec::new(),
         sta_chns: Vec::new(),
     }
@@ -879,10 +1051,10 @@ fn parse_exciter_attrs(attrs: &[(&str, &str)]) -> Exciter {
         name: attr_str(attrs, "exc_name"),
         src_ref: attr_str(attrs, "srcRef"),
         sys_id: attr_str(attrs, "sys_ID"),
-        pwr_id: attr_str(attrs, "pwr_ID"),
-        object_type: attr_str(attrs, "object_type"),
+        pwr_id: attr_str_any(attrs, &["gen_SID", "pwr_ID"]),
+        object_type: attr_str_any(attrs, &["type", "object_type"]),
         freq: attr_f64(attrs, "freq", 0.0),
-        v1: attr_f64(attrs, "V1", 0.0),
+        v1: attr_f64_any(attrs, &["VRtg", "V1"], 0.0),
         acv: AcvChn::default(),
         ta: AccBran::default(),
         ta_z: AccBran::default(),
