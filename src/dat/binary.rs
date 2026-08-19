@@ -18,7 +18,20 @@ pub fn parse_binary(data: &[u8], cfg: &Config) -> Result<DatFile> {
         return Err(Error::binary(FileRole::Dat, 0, "记录大小为0"));
     }
 
-    // 尾部不足整记录时直接截断（不报错），实际只读取 sample_count 条
+    let remainder = data.len() % record_size;
+    if remainder != 0 {
+        return Err(Error::binary(
+            FileRole::Dat,
+            data.len() - remainder,
+            format!(
+                "DAT 长度不是记录大小的整数倍：长度 {}，记录大小 {}，尾部剩余 {} 字节",
+                data.len(),
+                record_size,
+                remainder
+            ),
+        ));
+    }
+
     let sample_count = data.len() / record_size;
 
     let expected = cfg
@@ -28,7 +41,18 @@ pub fn parse_binary(data: &[u8], cfg: &Config) -> Result<DatFile> {
         .map(|s| s.end_point)
         .unwrap_or(sample_count);
 
-    let actual_count = sample_count.min(expected);
+    if expected > 0 && sample_count != expected {
+        return Err(Error::binary(
+            FileRole::Dat,
+            sample_count * record_size,
+            format!(
+                "采样点数与 CFG 不一致：期望 {}，实际 {}",
+                expected, sample_count
+            ),
+        ));
+    }
+
+    let actual_count = sample_count;
 
     let mut sample_index = Vec::with_capacity(actual_count);
     let mut timestamp_us = Vec::with_capacity(actual_count);

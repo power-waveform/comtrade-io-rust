@@ -2,7 +2,7 @@
 
 use super::DatFile;
 use crate::cfg::Config;
-use crate::error::Result;
+use crate::error::{Error, FileRole, Result};
 
 /// 解析 ASCII DAT 文本
 pub fn parse_ascii(text: &str, cfg: &Config) -> Result<DatFile> {
@@ -25,49 +25,41 @@ pub fn parse_ascii(text: &str, cfg: &Config) -> Result<DatFile> {
         .map(|_| Vec::with_capacity(sample_count))
         .collect();
 
-    for line in lines.iter() {
+    let expected_columns = 2 + analog_count + status_count;
+
+    for (line_idx, line) in lines.iter().enumerate() {
+        let line_no = line_idx + 1;
         let parts: Vec<&str> = line.split(',').collect();
+        if parts.len() != expected_columns {
+            return Err(Error::parse(
+                FileRole::Dat,
+                line_no,
+                format!(
+                    "列数与 CFG 不一致：期望 {} 列，实际 {} 列",
+                    expected_columns,
+                    parts.len()
+                ),
+            ));
+        }
 
         // 序号
-        let index: i32 = parts
-            .first()
-            .and_then(|s| s.trim().parse().ok())
-            .unwrap_or(0);
+        let index = parse_i32(parts[0], line_no, 1, "采样序号")?;
         sample_index.push(index);
 
         // 时间戳
-        let ts: f64 = parts
-            .get(1)
-            .and_then(|s| s.trim().parse().ok())
-            .unwrap_or(0.0);
+        let ts = parse_f64(parts[1], line_no, 2, "时间戳")?;
         timestamp_us.push(ts);
 
         // 模拟量
         for (i, col) in analogs.iter_mut().enumerate().take(analog_count) {
-            let val = parts
-                .get(2 + i)
-                .and_then(|s| {
-                    let s = s.trim();
-                    if s.is_empty()
-                        || s.eq_ignore_ascii_case("NA")
-                        || s.eq_ignore_ascii_case("null")
-                    {
-                        Some(0.0)
-                    } else {
-                        s.parse().ok()
-                    }
-                })
-                .unwrap_or(0.0);
+            let val = parse_f64(parts[2 + i], line_no, 3 + i, "模拟量")?;
             col.push(val);
         }
 
         // 状态量
         let status_start = 2 + analog_count;
         for (i, col) in statuses.iter_mut().enumerate().take(status_count) {
-            let val: u8 = parts
-                .get(status_start + i)
-                .and_then(|s| s.trim().parse().ok())
-                .unwrap_or(0);
+            let val = parse_status(parts[status_start + i], line_no, status_start + i + 1)?;
             col.push(val);
         }
     }
@@ -95,6 +87,72 @@ pub fn parse_ascii(text: &str, cfg: &Config) -> Result<DatFile> {
         analogs,
         statuses,
     })
+}
+
+fn parse_i32(s: &str, line: usize, column: usize, field: &str) -> Result<i32> {
+    let value = s.trim();
+    if value.is_empty() {
+        return Err(empty_field(line, column, field));
+    }
+    value.parse().map_err(|_| {
+        Error::parse(
+            FileRole::Dat,
+            line,
+            format!("第 {} 列 {} 不是有效整数: '{}'", column, field, value),
+        )
+    })
+}
+
+fn parse_f64(s: &str, line: usize, column: usize, field: &str) -> Result<f64> {
+    let value = s.trim();
+    if value.is_empty() || value.eq_ignore_ascii_case("NA") || value.eq_ignore_ascii_case("null") {
+        return Err(empty_field(line, column, field));
+    }
+    let parsed = value.parse::<f64>().map_err(|_| {
+        Error::parse(
+            FileRole::Dat,
+            line,
+            format!("第 {} 列 {} 不是有效浮点数: '{}'", column, field, value),
+        )
+    })?;
+    if !parsed.is_finite() {
+        return Err(Error::parse(
+            FileRole::Dat,
+            line,
+            format!("第 {} 列 {} 不是有限数值: '{}'", column, field, value),
+        ));
+    }
+    Ok(parsed)
+}
+
+fn parse_status(s: &str, line: usize, column: usize) -> Result<u8> {
+    let value = s.trim();
+    if value.is_empty() {
+        return Err(empty_field(line, column, "状态量"));
+    }
+    let parsed = value.parse::<u8>().map_err(|_| {
+        Error::parse(
+            FileRole::Dat,
+            line,
+            format!("第 {} 列 状态量 不是有效整数: '{}'", column, value),
+        )
+    })?;
+    if parsed > 1 {
+        return Err(Error::parse(
+            FileRole::Dat,
+            line,
+            format!("第 {} 列 状态量 只能为 0 或 1: '{}'", column, value),
+        ));
+    }
+    Ok(parsed)
+}
+
+fn empty_field(line: usize, column: usize, field: &str) -> Error {
+    Error::parse(
+        FileRole::Dat,
+        line,
+        format!("第 {} 列 {} 为空或缺失", column, field),
+    )
 }
 
 /// 写出 ASCII DAT 文本

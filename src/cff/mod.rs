@@ -78,7 +78,12 @@ impl CffFile {
     }
 
     /// 由 Comtrade 数据编码为 CFF 字节流
-    pub fn encode(cfg: &Config, dat: &DatFile, inf: Option<&InfFile>, dt: DataType) -> Vec<u8> {
+    pub fn encode(
+        cfg: &Config,
+        dat: &DatFile,
+        inf: Option<&InfFile>,
+        dt: DataType,
+    ) -> Result<Vec<u8>> {
         let mut buf = Vec::new();
 
         // 同步目标数据格式，保证 CFG 声明与 DAT 字节一致
@@ -101,14 +106,14 @@ impl CffFile {
         buf.extend_from_slice(b"--- file type DAT ---\n");
         match dt {
             DataType::Ascii => {
-                buf.extend_from_slice(dat.to_ascii(&cfg).as_bytes());
+                buf.extend_from_slice(dat.to_ascii(&cfg)?.as_bytes());
             },
             _ => {
-                buf.extend_from_slice(&dat.to_bytes(&cfg, dt));
+                buf.extend_from_slice(&dat.to_bytes(&cfg, dt)?);
             },
         }
 
-        buf
+        Ok(buf)
     }
 
     /// 写入 CFF 文件
@@ -119,7 +124,7 @@ impl CffFile {
         path: &Path,
         dt: DataType,
     ) -> Result<()> {
-        let bytes = CffFile::encode(cfg, dat, inf, dt);
+        let bytes = CffFile::encode(cfg, dat, inf, dt)?;
         std::fs::write(path, bytes).map_err(|e| Error::Io {
             path: path.to_path_buf(),
             source: e,

@@ -42,6 +42,32 @@ fn test_parse_binary_inf_cfg() {
 }
 
 #[test]
+fn test_from_file_preserves_utf8_chinese() {
+    let path = std::env::temp_dir().join(format!("ct_utf8_{}.cfg", std::process::id()));
+    let text = "\
+中文站,录波器,2013
+1,1A,0D
+1,母线_Ua,A,母线,V,1,0,0,-32767,32767,1,1,S
+50
+1
+1000,1
+01/01/2023,00:00:00.000000
+01/01/2023,00:00:00.000000
+ASCII
+1
+UTC,UTC
+0000";
+    std::fs::write(&path, text.as_bytes()).unwrap();
+
+    let config = Config::from_file(&path).unwrap();
+    let _ = std::fs::remove_file(&path);
+
+    assert_eq!(config.header.station, "中文站");
+    assert_eq!(config.header.recorder, "录波器");
+    assert_eq!(config.analog(1).unwrap().name, "母线_Ua");
+}
+
+#[test]
 fn test_cfg_round_trip_binary_1999() {
     let text = read_gbk("binary_1999.cfg");
     let config = Config::from_str(&text).unwrap();

@@ -79,23 +79,18 @@ pub fn read_text(path: &Path) -> Result<(String, Encoding)> {
     Ok((text, enc))
 }
 
-/// 读取文本文件，按 GBK 优先（对齐 Python CFG/INF 读取行为）
+/// 读取文本文件，自动探测 UTF-8 / GBK。
+///
+/// 历史上该入口按 GBK 优先，UTF-8 中文文件会被误解成合法但错误的 GBK 文本。
+/// 现在与 [`decode`] 保持一致：UTF-8 严格校验优先，失败再回退 GBK。
 pub fn read_text_gbk(path: &Path) -> Result<(String, Encoding)> {
     let bytes = std::fs::read(path).map_err(|e| Error::Io {
         path: path.to_path_buf(),
         source: e,
     })?;
-    // GBK 优先，失败回退 UTF-8
-    let text = decode_gbk(&bytes);
-    if text.contains('\u{FFFD}') {
-        // 含替换符，尝试 UTF-8
-        match std::str::from_utf8(&bytes) {
-            Ok(s) => Ok((s.to_string(), Encoding::Utf8)),
-            Err(_) => Ok((text, Encoding::Gbk)),
-        }
-    } else {
-        Ok((text, Encoding::Gbk))
-    }
+    let enc = detect(&bytes);
+    let text = decode_with(&bytes, enc);
+    Ok((text, enc))
 }
 
 /// 写出文本文件（指定编码）

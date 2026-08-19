@@ -39,7 +39,7 @@ fn test_cff_version_survives_round_trip() {
     let data = cff.to_data(&config).unwrap();
     let inf = cff.to_inf();
 
-    let written = CffFile::encode(&config, &data, inf.as_ref(), config.data_type);
+    let written = CffFile::encode(&config, &data, inf.as_ref(), config.data_type).unwrap();
     let re_config = CffFile::from_bytes(&written).to_config().unwrap();
     assert_eq!(
         re_config.header.version,
@@ -67,7 +67,7 @@ fn test_cff_round_trip() {
     let inf = cff.to_inf();
 
     // 写回 CFF
-    let written = CffFile::encode(&config, &data, inf.as_ref(), config.data_type);
+    let written = CffFile::encode(&config, &data, inf.as_ref(), config.data_type).unwrap();
 
     // 重新解析
     let reparsed = CffFile::from_bytes(&written);

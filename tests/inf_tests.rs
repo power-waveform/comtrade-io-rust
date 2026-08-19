@@ -26,6 +26,36 @@ fn test_has_file_description() {
 }
 
 #[test]
+fn test_from_file_preserves_utf8_chinese() {
+    let path = std::env::temp_dir().join(format!("ct_utf8_{}.inf", std::process::id()));
+    let text = "\
+[Public File_Description]
+Station_Name=中文站
+Recording_Device_ID=录波器
+Revision_Year=2013
+Total_Channels=0
+Analog_Channels=0
+Status_Channels=0
+Frequency=50
+Nrates=1
+Samp=1000
+Endsamp=1
+Start_Time=01/01/2023,00:00:00.000000
+Trigger_Time=01/01/2023,00:00:00.000000
+File_Type=ASCII
+Timemult=1
+";
+    std::fs::write(&path, text.as_bytes()).unwrap();
+
+    let inf = InfFile::from_file(&path).unwrap();
+    let _ = std::fs::remove_file(&path);
+    let fd = inf.file_description().unwrap();
+
+    assert_eq!(fd.get("Station_Name"), Some("中文站"));
+    assert_eq!(fd.get("Recording_Device_ID"), Some("录波器"));
+}
+
+#[test]
 fn test_has_analog_channels() {
     let bytes = std::fs::read(data_path("binary_inf.inf")).unwrap();
     let text = comtrade_io::encoding::decode_with(&bytes, comtrade_io::Encoding::Gbk);

@@ -71,7 +71,7 @@ impl DatFile {
     pub fn from_bytes(bytes: &[u8], cfg: &Config) -> Result<DatFile> {
         match cfg.data_type {
             DataType::Ascii => {
-                // 编码探测：UTF-8 → GBK → Latin-1
+                // 编码探测：UTF-8 → GBK
                 let text = encoding::decode(bytes);
                 DatFile::from_ascii(&text, cfg)
             },
@@ -82,7 +82,7 @@ impl DatFile {
     /// 从 ASCII 文本解析 DAT
     pub fn from_ascii(text: &str, cfg: &Config) -> Result<DatFile> {
         let mut dat = ascii::parse_ascii(text, cfg)?;
-        // 形状对齐
+        // 形状校验
         dat = fit_to_config(dat, cfg)?;
         // 应用 timemult
         apply_timemult(&mut dat, cfg);
@@ -90,20 +90,22 @@ impl DatFile {
     }
 
     /// 写出为 ASCII 文本
-    pub fn to_ascii(&self, cfg: &Config) -> String {
-        ascii::write_ascii(self, cfg)
+    pub fn to_ascii(&self, cfg: &Config) -> Result<String> {
+        self.validate_for_write(cfg)?;
+        Ok(ascii::write_ascii(self, cfg))
     }
 
     /// 写出为二进制字节
-    pub fn to_bytes(&self, cfg: &Config, dt: DataType) -> Vec<u8> {
-        binary::write_binary(self, cfg, dt)
+    pub fn to_bytes(&self, cfg: &Config, dt: DataType) -> Result<Vec<u8>> {
+        self.validate_for_write(cfg)?;
+        Ok(binary::write_binary(self, cfg, dt))
     }
 
     /// 写入文件
     pub fn write_file(&self, path: &Path, cfg: &Config, dt: DataType) -> Result<()> {
         let bytes = match dt {
-            DataType::Ascii => self.to_ascii(cfg).into_bytes(),
-            _ => self.to_bytes(cfg, dt),
+            DataType::Ascii => self.to_ascii(cfg)?.into_bytes(),
+            _ => self.to_bytes(cfg, dt)?,
         };
         std::fs::write(path, bytes).map_err(|e| Error::Io {
             path: path.to_path_buf(),
@@ -158,11 +160,16 @@ impl DatFile {
         }
         results
     }
+
+    /// 校验公开写出 API 需要的列式形状，避免索引写出时 panic。
+    fn validate_for_write(&self, cfg: &Config) -> Result<()> {
+        validate_columns(self, cfg).map(|_| ())
+    }
 }
 
-/// 形状对齐：按 CFG 声明的通道数与采样点数截断/补齐（对齐 Python _validate_shape）
-fn fit_to_config(mut dat: DatFile, cfg: &Config) -> Result<DatFile> {
-    let actual_rows = dat.len();
+/// 形状校验：DAT 列必须与 CFG 一致，且不得超过 CFG 声明的采样点数。
+fn fit_to_config(dat: DatFile, cfg: &Config) -> Result<DatFile> {
+    let actual_rows = validate_columns(&dat, cfg)?;
     let expected_rows = cfg
         .sampling
         .segments
@@ -170,52 +177,90 @@ fn fit_to_config(mut dat: DatFile, cfg: &Config) -> Result<DatFile> {
         .map(|s| s.end_point)
         .unwrap_or(0);
 
-    if actual_rows > expected_rows && expected_rows > 0 {
-        // 截断
-        dat.sample_index.truncate(expected_rows);
-        dat.timestamp_us.truncate(expected_rows);
-        for col in &mut dat.analogs {
-            col.truncate(expected_rows);
-        }
-        for col in &mut dat.statuses {
-            col.truncate(expected_rows);
-        }
+    if expected_rows > 0 && actual_rows > expected_rows {
+        return Err(Error::parse(
+            FileRole::Dat,
+            0,
+            format!(
+                "采样点数超过 CFG 声明：最多 {}，实际 {}",
+                expected_rows, actual_rows
+            ),
+        ));
     }
 
-    // 校验列数
+    Ok(dat)
+}
+
+fn validate_columns(dat: &DatFile, cfg: &Config) -> Result<usize> {
+    let actual_rows = dat.len();
+
+    if dat.timestamp_us.len() != actual_rows {
+        return Err(Error::parse(
+            FileRole::Dat,
+            0,
+            format!(
+                "时间戳列长度与采样序号不一致：期望 {}，实际 {}",
+                actual_rows,
+                dat.timestamp_us.len()
+            ),
+        ));
+    }
+
     let actual_analog = dat.analog_count();
-    if actual_analog < cfg.channels.analog {
-        // 模拟通道不足
-        if actual_analog == 0 && cfg.channels.analog > 0 {
+    if actual_analog != cfg.channels.analog {
+        return Err(Error::parse(
+            FileRole::Dat,
+            0,
+            format!(
+                "模拟通道数与 CFG 不一致：期望 {}，实际 {}",
+                cfg.channels.analog, actual_analog
+            ),
+        ));
+    }
+
+    for (idx, col) in dat.analogs.iter().enumerate() {
+        if col.len() != actual_rows {
             return Err(Error::parse(
                 FileRole::Dat,
                 0,
                 format!(
-                    "期望最少{}列模拟量，实际{}列",
-                    cfg.channels.analog + 2,
-                    actual_analog + 2
+                    "第 {} 个模拟通道长度与采样序号不一致：期望 {}，实际 {}",
+                    idx + 1,
+                    actual_rows,
+                    col.len()
                 ),
             ));
-        }
-        // 补零列
-        for _ in actual_analog..cfg.channels.analog {
-            dat.analogs.push(vec![0.0; dat.len()]);
         }
     }
 
     let actual_status = dat.status_count();
-    if actual_status < cfg.channels.status {
-        // 补零列
-        for _ in actual_status..cfg.channels.status {
-            dat.statuses.push(vec![0u8; dat.len()]);
+    if actual_status != cfg.channels.status {
+        return Err(Error::parse(
+            FileRole::Dat,
+            0,
+            format!(
+                "状态通道数与 CFG 不一致：期望 {}，实际 {}",
+                cfg.channels.status, actual_status
+            ),
+        ));
+    }
+
+    for (idx, col) in dat.statuses.iter().enumerate() {
+        if col.len() != actual_rows {
+            return Err(Error::parse(
+                FileRole::Dat,
+                0,
+                format!(
+                    "第 {} 个状态通道长度与采样序号不一致：期望 {}，实际 {}",
+                    idx + 1,
+                    actual_rows,
+                    col.len()
+                ),
+            ));
         }
     }
 
-    // 截断多余列
-    dat.analogs.truncate(cfg.channels.analog);
-    dat.statuses.truncate(cfg.channels.status);
-
-    Ok(dat)
+    Ok(actual_rows)
 }
 
 /// 应用 timemult 时间倍乘系数

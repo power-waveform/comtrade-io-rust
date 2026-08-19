@@ -14,7 +14,7 @@ use std::path::Path;
 use crate::cfg::Config;
 use crate::dat::DatFile;
 use crate::encoding;
-use crate::error::{Error, Result};
+use crate::error::{Error, FileRole, Result};
 use crate::time::Timestamp;
 
 /// DFR 文件
@@ -99,8 +99,18 @@ impl DfrFile {
         let wndr_text = encoding::decode_with(wndr_bytes, encoding::Encoding::Cp1251);
         let wndr = WndrSection::from_text(&wndr_text)?;
 
-        // 定位 [Data]\r\n 标记
-        let data_offset = find_data_marker(data).unwrap_or(WNDR_TEXT_SIZE);
+        // 定位 [Data]\r\n 标记；老格式缺标记时从固定 WNDR 头后读取。
+        let data_offset = match find_data_marker(data) {
+            Some(offset) => offset,
+            None if data.len() >= WNDR_TEXT_SIZE => WNDR_TEXT_SIZE,
+            None => {
+                return Err(Error::binary(
+                    FileRole::Dfr,
+                    data.len(),
+                    "缺少 [Data]\\r\\n 标记，且文件短于 WNDR 文本头",
+                ));
+            },
+        };
         let binary_data = &data[data_offset..];
         let binary = DfrBinary::from_raw(binary_data);
 
@@ -200,5 +210,25 @@ fn days_in_month(year: u16, month: u8) -> u8 {
             }
         },
         _ => 0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_time() -> Timestamp {
+        Timestamp::new(2023, 1, 1, 0, 0, 0, 0).unwrap()
+    }
+
+    #[test]
+    fn test_short_dfr_without_data_marker_returns_error() {
+        let data = b"[WNDR]\r\nSTATION\r\n0,0A,0D\r\n32768\r\n24\r\n0\r\n";
+        let err = DfrFile::from_bytes(data, test_time()).expect_err("短 DFR 不应 panic 或成功");
+        assert!(
+            err.to_string().contains("缺少 [Data]"),
+            "错误应说明缺少 Data 标记，实际: {}",
+            err
+        );
     }
 }
