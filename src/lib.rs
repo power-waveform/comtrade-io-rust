@@ -50,7 +50,7 @@ pub use cfg::{
 pub use comtrade::{ChannelView, Comtrade, ComtradePaths};
 pub use dat::{recalculate_segments, DatFile, StatusChange};
 pub use dfr::{DfrBinary, DfrFile, WndrSection};
-pub use dmf::DmfFile;
+pub use dmf::{DmfAnalogChannel, DmfFile, DmfStatusChannel};
 pub use encoding::Encoding;
 pub use equipment::{
     AccBran, AcvChn, BranchNum, Bus, Capacitance, EquipmentGroup, Exciter, Generator, Igap,
