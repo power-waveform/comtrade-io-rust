@@ -40,6 +40,9 @@ pub struct DmfAnalogChannel {
     pub secondary: f64,
     /// 一次/二次标志
     pub ps: String,
+    /// 关联模拟量通道索引（DMF `idx_rlt`）。用于双 A/D 或同一物理量的
+    /// 相关通道，值为 CFG 中 1 基通道号；0 表示未关联。
+    pub idx_rlt: usize,
     /// 相别（如 A/B/C）
     pub ph: String,
 }

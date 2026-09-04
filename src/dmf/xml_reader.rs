@@ -689,6 +689,7 @@ fn parse_dir(s: &str) -> i32 {
 
 fn parse_analog_attrs(attrs: &[(&str, &str)]) -> DmfAnalogChannel {
     let mut ch = DmfAnalogChannel::default();
+    let mut has_au = false;
     for (name, value) in attrs {
         match *name {
             "idx_cfg" => ch.idx_cfg = value.parse().unwrap_or(0),
@@ -696,18 +697,35 @@ fn parse_analog_attrs(attrs: &[(&str, &str)]) -> DmfAnalogChannel {
             "type" => ch.ch_type = value.to_string(),
             "flag" => ch.flag = value.to_string(),
             "freq" => ch.freq = value.parse().unwrap_or(50.0),
-            "au" => ch.au = value.parse().unwrap_or(0.0),
+            "au" => {
+                has_au = true;
+                ch.au = value.parse().unwrap_or(0.0)
+            },
             "bu" => ch.bu = value.parse().unwrap_or(0.0),
             "sIUnit" => ch.unit = value.to_string(),
             "multiplier" => ch.multiplier = value.parse().unwrap_or(1.0),
             "primary" => ch.primary = value.parse().unwrap_or(1.0),
             "secondary" => ch.secondary = value.parse().unwrap_or(1.0),
             "ps" => ch.ps = value.to_string(),
+            // 兼容早期 Python 写出的 idx_rl 与当前样本使用的 idx_rlt。
+            "idx_rlt" | "idx_rl" => ch.idx_rlt = value.parse().unwrap_or(0),
             "ph" => ch.ph = value.to_string(),
             _ => {},
         }
     }
+    // DMF 早期版本可能省略 au。交流模拟量的标准默认值为 1；
+    // 显式写入（包括显式 0）的值必须保留。
+    if !has_au && is_ac_channel_type(&ch.ch_type) {
+        ch.au = 1.0;
+    }
     ch
+}
+
+fn is_ac_channel_type(kind: &str) -> bool {
+    matches!(
+        kind.trim().to_ascii_lowercase().as_str(),
+        "a" | "ac" | "acv" | "acc" | "acvoltage" | "ac current" | "acccurrent" | "accurrent"
+    )
 }
 
 fn parse_status_attrs(attrs: &[(&str, &str)]) -> DmfStatusChannel {
@@ -894,6 +912,19 @@ fn parse_exciter_attrs(attrs: &[(&str, &str)]) -> Exciter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn omitted_au_defaults_to_one_for_ac_channels() {
+        let ac = parse_analog_attrs(&[("type", "ACVoltage"), ("bu", "0")]);
+        assert_eq!(ac.au, 1.0);
+        assert_eq!(ac.bu, 0.0);
+        assert_eq!(ac.idx_rlt, 0);
+
+        let explicit_zero = parse_analog_attrs(&[("type", "ACC"), ("au", "0")]);
+        assert_eq!(explicit_zero.au, 0.0);
+        assert_eq!(explicit_zero.bu, 0.0);
+        assert_eq!(explicit_zero.idx_rlt, 0);
+    }
 
     #[test]
     fn test_parse_dir_normalization() {

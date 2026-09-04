@@ -6,7 +6,8 @@ mod channel;
 mod sampling;
 
 pub use channel::{
-    parse_f64_or, AnalogChannel, AnalogExt, DataType, StatusChannel, StatusExt, TranSide, Version,
+    is_iec61850_reference, is_reference_like_ccbm, parse_f64_or, AnalogChannel, AnalogExt,
+    DataType, StatusChannel, StatusExt, TranSide, Version,
 };
 pub use sampling::{Sampling, Segment, DEFAULT_NOMINAL_FREQ};
 
@@ -289,6 +290,13 @@ impl Config {
                 if ch.index == 0 {
                     ch.index = i + 1;
                 }
+                if is_reference_like_ccbm(&ch.equipment) || is_iec61850_reference(&ch.equipment) {
+                    let reference = std::mem::take(&mut ch.equipment);
+                    ch.ext = Some(AnalogExt {
+                        reference: Some(reference),
+                        ..Default::default()
+                    });
+                }
                 analogs.push(ch);
             }
         }
@@ -302,6 +310,13 @@ impl Config {
                 let mut ch = StatusChannel::from_cfg_line(lines[line_idx]);
                 if ch.index == 0 {
                     ch.index = i + 1;
+                }
+                if is_reference_like_ccbm(&ch.equipment) || is_iec61850_reference(&ch.equipment) {
+                    let reference = std::mem::take(&mut ch.equipment);
+                    ch.ext = Some(StatusExt {
+                        reference: Some(reference),
+                        ..Default::default()
+                    });
                 }
                 statuses.push(ch);
             }
@@ -430,6 +445,74 @@ mod tests {
         assert_eq!(config.analogs.len(), 6);
         assert_eq!(config.statuses.len(), 6);
         assert_eq!(config.data_type, DataType::Ascii);
+    }
+
+    #[test]
+    fn ccbm_reference_compatibility_moves_illegal_values_to_reference() {
+        let cfg_text = "\
+            STATION,RECORDER,1999\n\
+            2,1A,1D\n\
+            1,Ua,A,MUSV$TVTR1$MX$Vol,V,1,0,0,-1,1,1,1,S\n\
+            1,Trip,,SVOUTMUSV$TCTR1$MX$AmpR,0\n\
+            50\n\
+            1\n\
+            100,100\n\
+            01/01/2020,00:00:00.000000\n\
+            01/01/2020,00:00:00.000000\n\
+            ASCII\n\
+            1";
+        let cfg = Config::from_str(cfg_text).unwrap();
+        assert!(cfg.analogs[0].equipment.is_empty());
+        assert_eq!(
+            cfg.analogs[0]
+                .ext
+                .as_ref()
+                .and_then(|e| e.reference.as_deref()),
+            Some("MUSV$TVTR1$MX$Vol")
+        );
+        assert!(cfg.statuses[0].equipment.is_empty());
+        assert_eq!(
+            cfg.statuses[0]
+                .ext
+                .as_ref()
+                .and_then(|e| e.reference.as_deref()),
+            Some("SVOUTMUSV$TCTR1$MX$AmpR")
+        );
+    }
+
+    #[test]
+    fn ccbm_reference_detection_does_not_match_normal_equipment() {
+        assert!(is_reference_like_ccbm("MUSV$TVTR1$MX$Vol"));
+        assert!(is_reference_like_ccbm("svoutmusv$tctr1$mx$ampr"));
+        assert!(!is_reference_like_ccbm("线路1"));
+        assert!(!is_reference_like_ccbm("MUSV设备"));
+    }
+
+    #[test]
+    fn iec61850_ccbm_is_kept_as_reference_and_not_equipment() {
+        assert!(is_iec61850_reference("PTRC$ST$Tr$general"));
+        assert!(is_iec61850_reference("TCTR$MX$Amp$"));
+        assert!(!is_iec61850_reference("线路$1"));
+        let cfg_text = "\
+            STATION,RECORDER,1999\n\
+            1,0A,1D\n\
+            1,Trip,,PTRC$ST$Tr$general,0\n\
+            50\n\
+            1\n\
+            100,100\n\
+            01/01/2020,00:00:00.000000\n\
+            01/01/2020,00:00:00.000000\n\
+            ASCII\n\
+            1";
+        let cfg = Config::from_str(cfg_text).unwrap();
+        assert!(cfg.statuses[0].equipment.is_empty());
+        assert_eq!(
+            cfg.statuses[0]
+                .ext
+                .as_ref()
+                .and_then(|ext| ext.reference.as_deref()),
+            Some("PTRC$ST$Tr$general")
+        );
     }
 
     #[test]

@@ -31,3 +31,7 @@ encoding_rs = "0.8"
 [features]
 default = []
 gbk-builtin = []
+
+[workspace]
+members = [".", "crates/comtrade-recognition"]
+resolver = "2"

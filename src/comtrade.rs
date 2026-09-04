@@ -271,10 +271,49 @@ impl Comtrade {
 
 /// 解析文件路径（存在则返回）
 fn resolve_path(parent: &Path, stem: &str, ext: &str) -> Option<PathBuf> {
+    // Windows 通常不区分大小写，但 Linux/WSL 区分。录波文件组的
+    // 后缀约定本身大小写不敏感，因此在大小写敏感文件系统上也要
+    // 找到 `FILE.CFG` / `file.cfg` 的兄弟文件。只比较扩展名，主
+    // 文件名仍保持用户选择的 stem，避免误匹配相似文件。
+    let entries = std::fs::read_dir(parent).ok();
+    if let Some(entries) = entries {
+        let mut candidates = entries
+            .filter_map(|entry| entry.ok().map(|e| e.path()))
+            .filter(|candidate| {
+                candidate.file_stem().and_then(|value| value.to_str()) == Some(stem)
+                    && candidate
+                        .extension()
+                        .and_then(|value| value.to_str())
+                        .is_some_and(|value| value.eq_ignore_ascii_case(ext))
+            })
+            .collect::<Vec<_>>();
+        candidates.sort_by(|a, b| a.to_string_lossy().cmp(&b.to_string_lossy()));
+        if let Some(path) = candidates.into_iter().next() {
+            return Some(path);
+        }
+    }
     let path = parent.join(format!("{}.{}", stem, ext));
-    if path.exists() {
-        Some(path)
-    } else {
-        None
+    path.exists().then_some(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_path;
+
+    #[test]
+    fn resolve_path_accepts_case_insensitive_extension() {
+        let dir = std::env::temp_dir().join(format!(
+            "comtrade-resolve-case-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let cfg = dir.join("capture.CfG");
+        std::fs::write(&cfg, b"test").unwrap();
+        assert_eq!(resolve_path(&dir, "capture", "cfg"), Some(cfg));
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }

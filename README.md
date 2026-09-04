@@ -114,6 +114,9 @@ cargo run --example cff           # 运行 CFF 解析示例
 
 ## 项目结构
 
+仓库采用 Cargo workspace。根包 `comtrade-io` 负责格式解析/写出，
+`comtrade-recognition` 负责可独立复用的通道识别和 CFG→DMF 生成，应用层无需复制识别逻辑。
+
 ```
 src/
 ├── lib.rs          # 公共 API 再导出
@@ -129,6 +132,8 @@ src/
 ├── time.rs         # COMTRADE 时间解析（微秒精度，无 chrono）
 ├── equipment.rs    # 设备拓扑模型（Bus/Line/Transformer）
 └── error.rs        # 统一 Error / Result
+crates/
+└── comtrade-recognition/ # 通道识别、备用判定、设备归组、TOML 规则
 tests/data/         # 测试样本（含 GBK 文件、CFF、DMF）
 examples/           # 用法示例
 ```

@@ -33,6 +33,21 @@ fn test_dmf_round_trip() {
 }
 
 #[test]
+fn test_analog_related_index_round_trip_and_legacy_alias() {
+    let xml = r#"<scl:ComtradeModel station_name="S" version="1.0" reference="0" rec_dev_name="R">
+        <scl:AnalogChannel idx_cfg="1" idx_org="1" type="A" flag="ACV" freq="50" au="0" bu="0" sIUnit="V" multiplier="1" primary="1" secondary="1" ps="S" idx_rl="7" ph="A"/>
+    </scl:ComtradeModel>"#;
+    let parsed = DmfFile::from_str(xml).unwrap();
+    assert_eq!(parsed.analogs[0].idx_rlt, 7);
+
+    let serialized = parsed.to_string();
+    assert!(serialized.contains("idx_rlt=\"7\""));
+    assert!(!serialized.contains("idx_rl=\"7\""));
+    let reparsed = DmfFile::from_str(&serialized).unwrap();
+    assert_eq!(reparsed.analogs[0].idx_rlt, 7);
+}
+
+#[test]
 fn test_dmf_to_equipment_group() {
     let text = std::fs::read_to_string(data_path("binary_1999.dmf")).unwrap();
     let dmf = DmfFile::from_str(&text).unwrap();

@@ -2,8 +2,8 @@
 
 use super::section::{InfFile, Section, SectionKind};
 use crate::cfg::{
-    AnalogChannel, AnalogExt, Config, DataType, Sampling, Segment, StatusChannel, StatusExt,
-    TranSide, Version,
+    is_iec61850_reference, AnalogChannel, AnalogExt, Config, DataType, Sampling, Segment,
+    StatusChannel, StatusExt, TranSide, Version,
 };
 use crate::equipment::{
     AccBran, AcvChn, BranchNum, Bus, Capacitance, EquipmentGroup, Exciter, Generator, Igap,
@@ -119,7 +119,12 @@ fn build_channels_from_inf(inf: &InfFile, config: &mut Config) {
         let index = section.index;
         let name = section.get("Channel_ID").unwrap_or("").to_string();
         let phase = section.get("Phase_ID").unwrap_or("").to_string();
-        let equipment = section.get("Monitored_Component").unwrap_or("").to_string();
+        let monitored_component = section.get("Monitored_Component").unwrap_or("").trim();
+        let (equipment, reference) = if is_iec61850_reference(monitored_component) {
+            (String::new(), Some(monitored_component.to_string()))
+        } else {
+            (monitored_component.to_string(), None)
+        };
         let unit = section.get("Channel_Units").unwrap_or("").to_string();
         let multiplier = section
             .get("Channel_Multiplier")
@@ -166,7 +171,10 @@ fn build_channels_from_inf(inf: &InfFile, config: &mut Config) {
             primary,
             secondary,
             tran_side,
-            ext: None,
+            ext: reference.map(|reference| AnalogExt {
+                reference: Some(reference),
+                ..Default::default()
+            }),
         });
     }
 
@@ -176,7 +184,12 @@ fn build_channels_from_inf(inf: &InfFile, config: &mut Config) {
         let index = section.index;
         let name = section.get("Channel_ID").unwrap_or("").to_string();
         let phase = section.get("Phase_ID").unwrap_or("").to_string();
-        let equipment = section.get("Monitored_Component").unwrap_or("").to_string();
+        let monitored_component = section.get("Monitored_Component").unwrap_or("").trim();
+        let (equipment, reference) = if is_iec61850_reference(monitored_component) {
+            (String::new(), Some(monitored_component.to_string()))
+        } else {
+            (monitored_component.to_string(), None)
+        };
         let contact = section
             .get("Normal_State")
             .and_then(|s| s.parse().ok())
@@ -188,7 +201,10 @@ fn build_channels_from_inf(inf: &InfFile, config: &mut Config) {
             phase,
             equipment,
             contact,
-            ext: None,
+            ext: reference.map(|reference| StatusExt {
+                reference: Some(reference),
+                ..Default::default()
+            }),
         });
     }
 }
@@ -213,6 +229,7 @@ fn apply_parameters(inf: &InfFile, config: &mut Config) {
             let bu: f64 = parts[10].parse().unwrap_or(0.0);
 
             if let Some(ch) = config.analogs.iter_mut().find(|a| a.index == idx_cfg) {
+                let reference = ch.ext.as_ref().and_then(|e| e.reference.clone());
                 ch.ext = Some(AnalogExt {
                     idx_org: Some(idx_org),
                     freq: Some(freq_val),
@@ -220,7 +237,7 @@ fn apply_parameters(inf: &InfFile, config: &mut Config) {
                     bu: Some(bu),
                     channel_type: None,
                     flag: Some(flag),
-                    reference: None,
+                    reference,
                 });
                 ch.primary = primary;
                 ch.secondary = secondary;
@@ -243,6 +260,7 @@ fn apply_parameters(inf: &InfFile, config: &mut Config) {
             let equipment_no = parts[5].to_string();
 
             if let Some(ch) = config.statuses.iter_mut().find(|s| s.index == idx_cfg) {
+                let reference = ch.ext.as_ref().and_then(|e| e.reference.clone());
                 ch.ext = Some(StatusExt {
                     idx_org: Some(idx_org),
                     channel_type: if channel_type.is_empty() {
@@ -252,7 +270,7 @@ fn apply_parameters(inf: &InfFile, config: &mut Config) {
                     },
                     flag: if flag.is_empty() { None } else { Some(flag) },
                     contact: None,
-                    reference: None,
+                    reference,
                     equipment_no: if equipment_no.is_empty() {
                         None
                     } else {
@@ -962,10 +980,21 @@ pub fn build_file_description(cfg: &Config) -> Section {
 }
 
 pub fn build_analog_section(ch: &AnalogChannel) -> Section {
+    let monitored_component = if ch.equipment.trim().is_empty() {
+        ch.ext
+            .as_ref()
+            .and_then(|ext| ext.reference.as_deref())
+            .unwrap_or("")
+    } else {
+        &ch.equipment
+    };
     let fields = vec![
         ("Channel_ID".to_string(), ch.name.clone()),
         ("Phase_ID".to_string(), ch.phase.clone()),
-        ("Monitored_Component".to_string(), ch.equipment.clone()),
+        (
+            "Monitored_Component".to_string(),
+            monitored_component.to_string(),
+        ),
         ("Channel_Units".to_string(), ch.unit.clone()),
         ("Channel_Multiplier".to_string(), ch.multiplier.to_string()),
         ("Channel_Offset".to_string(), ch.offset.to_string()),
@@ -999,10 +1028,21 @@ pub fn build_analog_section(ch: &AnalogChannel) -> Section {
 }
 
 pub fn build_status_section(ch: &StatusChannel) -> Section {
+    let monitored_component = if ch.equipment.trim().is_empty() {
+        ch.ext
+            .as_ref()
+            .and_then(|ext| ext.reference.as_deref())
+            .unwrap_or("")
+    } else {
+        &ch.equipment
+    };
     let fields = vec![
         ("Channel_ID".to_string(), ch.name.clone()),
         ("Phase_ID".to_string(), ch.phase.clone()),
-        ("Monitored_Component".to_string(), ch.equipment.clone()),
+        (
+            "Monitored_Component".to_string(),
+            monitored_component.to_string(),
+        ),
         ("Normal_State".to_string(), ch.contact.to_string()),
     ];
 

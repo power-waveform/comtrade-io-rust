@@ -104,12 +104,10 @@ pub fn write_dmf(dmf: &DmfFile) -> String {
     );
     lines.push(format!(r#"<scl:ComtradeModel {}>"#, root_attrs));
 
-    // 模拟通道
-    // 偏离 Python 基线：属性名为 `idx_rlt`（样本一致），原实现写 `idx_rl`。
-    // 该字段当前未建模，固定写 0。
+    // 模拟通道。写出使用现行样本中的 `idx_rlt`；读取兼容旧 `idx_rl`。
     for ch in &dmf.analogs {
         lines.push(format!(
-            r#"	<scl:AnalogChannel idx_cfg="{}" idx_org="{}" type="{}" flag="{}" freq="{}" au="{}" bu="{}" sIUnit="{}" multiplier="{}" primary="{}" secondary="{}" ps="{}" idx_rlt="0" ph="{}"/>"#,
+            r#"	<scl:AnalogChannel idx_cfg="{}" idx_org="{}" type="{}" flag="{}" freq="{}" au="{}" bu="{}" sIUnit="{}" multiplier="{}" primary="{}" secondary="{}" ps="{}" idx_rlt="{}" ph="{}"/>"#,
             ch.idx_cfg,
             ch.idx_org,
             escape(&ch.ch_type),
@@ -122,6 +120,7 @@ pub fn write_dmf(dmf: &DmfFile) -> String {
             ch.primary,
             ch.secondary,
             escape(&ch.ps),
+            ch.idx_rlt,
             escape(&ch.ph),
         ));
     }

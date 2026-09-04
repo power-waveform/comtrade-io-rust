@@ -43,9 +43,9 @@ mod comtrade;
 // 公共 API 再导出
 pub use cff::{CffFile, CffSections};
 pub use cfg::{
-    AnalogChannel, AnalogExt, ChannelCount, Config, DataType, Header, Sampling,
-    SamplingTimeQuality, Segment, StatusChannel, StatusExt, TimeInfo, TranSide, Version,
-    DEFAULT_NOMINAL_FREQ,
+    is_iec61850_reference, is_reference_like_ccbm, AnalogChannel, AnalogExt, ChannelCount, Config,
+    DataType, Header, Sampling, SamplingTimeQuality, Segment, StatusChannel, StatusExt, TimeInfo,
+    TranSide, Version, DEFAULT_NOMINAL_FREQ,
 };
 pub use comtrade::{ChannelView, Comtrade, ComtradePaths};
 pub use dat::{recalculate_segments, DatFile, StatusChange};
