@@ -47,7 +47,7 @@ pub use cfg::{
     DataType, Header, Sampling, SamplingTimeQuality, Segment, StatusChannel, StatusExt, TimeInfo,
     TranSide, Version, DEFAULT_NOMINAL_FREQ,
 };
-pub use comtrade::{ChannelView, Comtrade, ComtradePaths};
+pub use comtrade::{ChannelKind, ChannelView, Comtrade, ComtradePaths};
 pub use dat::{recalculate_segments, DatFile, StatusChange};
 pub use dfr::{DfrBinary, DfrFile, WndrSection};
 pub use dmf::{DmfAnalogChannel, DmfFile, DmfStatusChannel};

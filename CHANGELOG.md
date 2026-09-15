@@ -9,6 +9,14 @@
 
 ### Added
 
+- 波形数据编辑写入口：`Comtrade` 新增 `set_analog_column` / `set_status_column`
+  （按列替换工程值/状态值，校验长度与取值）、`remove_channel` / `insert_analog_channel` /
+  `insert_status_channel`（增删通道时原子同步 CFG 通道定义、计数与 DAT 列并重编号 1 基
+  index）、`crop_rows`（保留 `[start,end)` 行区间并重算采样段）、`to_cff_bytes` /
+  `write_cff`（CFF 单文件便捷写出，封装 `CffFile::encode`）。新增 `ChannelKind` 枚举。
+  这些方法只改采样数据与通道定义，不重建设备拓扑（`equipment`），设备组引用由调用方负责。
+  纯新增，无破坏性变更。为 wave-tauri 波形数据编辑功能（方案 §4）提供底层写能力。
+
 - CFG/INF 中以 `PTRC$...`、`TCTR$...` 等形式出现的 IEC 61850 `ccbm`/`Monitored_Component`
   参引统一转存到通道扩展 `reference`，不再误作为被监视元件参与设备归组；CFG→DMF
   生成会保留状态量 `srcRef`。开关量设备关联增加按通道名称设备编号锚点的保守匹配，

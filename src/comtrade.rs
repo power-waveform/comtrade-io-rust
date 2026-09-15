@@ -4,11 +4,11 @@ use std::path::{Path, PathBuf};
 
 use crate::cff::CffFile;
 use crate::cfg::{Config, DataType};
-use crate::dat::{DatFile, StatusChange};
+use crate::dat::{recalculate_segments, DatFile, StatusChange};
 use crate::dfr::DfrFile;
 use crate::dmf::DmfFile;
 use crate::equipment::EquipmentGroup;
-use crate::error::{Error, Result};
+use crate::error::{Error, FileRole, Result};
 use crate::hdr::HdrFile;
 use crate::inf::InfFile;
 
@@ -38,6 +38,15 @@ pub struct ChannelView<'a> {
     pub definition: &'a crate::cfg::AnalogChannel,
     /// 该通道的采样数据（只读引用）
     pub samples: &'a [f64],
+}
+
+/// 编辑操作中标识通道种类
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChannelKind {
+    /// 模拟量通道
+    Analog,
+    /// 状态量通道
+    Status,
 }
 
 /// COMTRADE 数据模型
@@ -266,6 +275,254 @@ impl Comtrade {
         }
 
         Ok(())
+    }
+
+    // ========== 波形数据编辑写入口 ==========
+    // 这些方法只改 `self.data` 的采样值与 `self.config` 的通道定义/计数，
+    // 不改设备拓扑（`equipment`）——设备组引用由调用方（wave-tauri）负责重建。
+
+    /// 替换某模拟量通道整列工程值。
+    ///
+    /// `channel` 为 0 基列下标（与 [`DatFile::analog_samples`] 一致）。
+    /// `values` 长度必须与现有采样点数一致，否则返回错误、不修改任何数据。
+    pub fn set_analog_column(&mut self, channel: usize, values: Vec<f64>) -> Result<()> {
+        let data = self
+            .data
+            .as_mut()
+            .ok_or_else(|| Error::parse(FileRole::Dat, 0, "文件不含采样数据"))?;
+        let column = data
+            .analogs
+            .get_mut(channel)
+            .ok_or_else(|| Error::parse(FileRole::Dat, 0, format!("模拟量通道下标越界: {channel}")))?;
+        if values.len() != column.len() {
+            return Err(Error::parse(
+                FileRole::Dat,
+                0,
+                format!("新列长度 {} 与采样点数 {} 不一致", values.len(), column.len()),
+            ));
+        }
+        *column = values;
+        Ok(())
+    }
+
+    /// 替换某状态量通道整列（0/1）。
+    ///
+    /// `channel` 为 0 基列下标；`values` 长度须与采样点数一致，且每个值必须为 0 或 1。
+    pub fn set_status_column(&mut self, channel: usize, values: Vec<u8>) -> Result<()> {
+        let data = self
+            .data
+            .as_mut()
+            .ok_or_else(|| Error::parse(FileRole::Dat, 0, "文件不含采样数据"))?;
+        let column = data
+            .statuses
+            .get_mut(channel)
+            .ok_or_else(|| Error::parse(FileRole::Dat, 0, format!("状态量通道下标越界: {channel}")))?;
+        if values.len() != column.len() {
+            return Err(Error::parse(
+                FileRole::Dat,
+                0,
+                format!("新列长度 {} 与采样点数 {} 不一致", values.len(), column.len()),
+            ));
+        }
+        if values.iter().any(|&v| v > 1) {
+            return Err(Error::parse(
+                FileRole::Dat,
+                0,
+                "状态量取值只能为 0 或 1",
+            ));
+        }
+        *column = values;
+        Ok(())
+    }
+
+    /// 删除一条通道（模拟量或状态量），原子同步 CFG 定义、通道计数与数据列。
+    ///
+    /// `index` 为 0 基列下标；删除后同种类其余通道的 CFG 1 基 `index` 重新编号，
+    /// `config.channels.total/analog/status` 与 `data` 列数保持一致。
+    pub fn remove_channel(&mut self, kind: ChannelKind, index: usize) -> Result<()> {
+        let data = self
+            .data
+            .as_mut()
+            .ok_or_else(|| Error::parse(FileRole::Dat, 0, "文件不含采样数据"))?;
+        match kind {
+            ChannelKind::Analog => {
+                if index >= self.config.analogs.len() {
+                    return Err(Error::parse(
+                        FileRole::Cfg,
+                        0,
+                        format!("模拟量通道下标越界: {index}"),
+                    ));
+                }
+                self.config.analogs.remove(index);
+                data.analogs.remove(index);
+                for (i, ch) in self.config.analogs.iter_mut().enumerate() {
+                    ch.index = i + 1;
+                }
+                self.config.channels.analog = self.config.analogs.len();
+            },
+            ChannelKind::Status => {
+                if index >= self.config.statuses.len() {
+                    return Err(Error::parse(
+                        FileRole::Cfg,
+                        0,
+                        format!("状态量通道下标越界: {index}"),
+                    ));
+                }
+                self.config.statuses.remove(index);
+                data.statuses.remove(index);
+                for (i, ch) in self.config.statuses.iter_mut().enumerate() {
+                    ch.index = i + 1;
+                }
+                self.config.channels.status = self.config.statuses.len();
+            },
+        }
+        self.config.channels.total = self.config.channels.analog + self.config.channels.status;
+        Ok(())
+    }
+
+    /// 在某模拟量通道下标之后插入一条新通道（含初始工程值列）。
+    ///
+    /// `after` 为 0 基下标，插入到 `after + 1` 处；`values` 长度须与采样点数一致。
+    /// 插入后全部模拟量 CFG 1 基 `index` 重新编号，计数同步更新。
+    pub fn insert_analog_channel(
+        &mut self,
+        after: usize,
+        ch: crate::cfg::AnalogChannel,
+        values: Vec<f64>,
+    ) -> Result<()> {
+        let data = self
+            .data
+            .as_mut()
+            .ok_or_else(|| Error::parse(FileRole::Dat, 0, "文件不含采样数据"))?;
+        if after >= self.config.analogs.len() {
+            return Err(Error::parse(
+                FileRole::Cfg,
+                0,
+                format!("模拟量插入位置越界: after={after}"),
+            ));
+        }
+        if values.len() != data.len() {
+            return Err(Error::parse(
+                FileRole::Dat,
+                0,
+                format!("新列长度 {} 与采样点数 {} 不一致", values.len(), data.len()),
+            ));
+        }
+        let insert_at = after + 1;
+        self.config.analogs.insert(insert_at, ch);
+        data.analogs.insert(insert_at, values);
+        for (i, ch) in self.config.analogs.iter_mut().enumerate() {
+            ch.index = i + 1;
+        }
+        self.config.channels.analog = self.config.analogs.len();
+        self.config.channels.total = self.config.channels.analog + self.config.channels.status;
+        Ok(())
+    }
+
+    /// 在某状态量通道下标之后插入一条新通道（含初始状态列，值须为 0/1）。
+    ///
+    /// 语义与 [`Comtrade::insert_analog_channel`] 一致。
+    pub fn insert_status_channel(
+        &mut self,
+        after: usize,
+        ch: crate::cfg::StatusChannel,
+        values: Vec<u8>,
+    ) -> Result<()> {
+        let data = self
+            .data
+            .as_mut()
+            .ok_or_else(|| Error::parse(FileRole::Dat, 0, "文件不含采样数据"))?;
+        if after >= self.config.statuses.len() {
+            return Err(Error::parse(
+                FileRole::Cfg,
+                0,
+                format!("状态量插入位置越界: after={after}"),
+            ));
+        }
+        if values.len() != data.len() {
+            return Err(Error::parse(
+                FileRole::Dat,
+                0,
+                format!("新列长度 {} 与采样点数 {} 不一致", values.len(), data.len()),
+            ));
+        }
+        if values.iter().any(|&v| v > 1) {
+            return Err(Error::parse(
+                FileRole::Dat,
+                0,
+                "状态量取值只能为 0 或 1",
+            ));
+        }
+        let insert_at = after + 1;
+        self.config.statuses.insert(insert_at, ch);
+        data.statuses.insert(insert_at, values);
+        for (i, ch) in self.config.statuses.iter_mut().enumerate() {
+            ch.index = i + 1;
+        }
+        self.config.channels.status = self.config.statuses.len();
+        self.config.channels.total = self.config.channels.analog + self.config.channels.status;
+        Ok(())
+    }
+
+    /// 裁剪采样行，仅保留区间 `[start, end)`，同步截断全部数据列并修正 CFG 采样段。
+    ///
+    /// - 保留 `sample_index` / `timestamp_us` / 各模拟列 / 各状态列的 `[start, end)`；
+    /// - `sample_index` 平移为从 1 重新编号（相对新起点），`timestamp_us` 保持绝对微秒；
+    /// - 用 `recalculate_segments` 按剩余时间戳重算 `config.sampling.segments`
+    ///   （`end_point` 随新采样点数更新）。
+    pub fn crop_rows(&mut self, start: usize, end: usize) -> Result<()> {
+        let data = self
+            .data
+            .as_mut()
+            .ok_or_else(|| Error::parse(FileRole::Dat, 0, "文件不含采样数据"))?;
+        let n = data.len();
+        if start >= end || end > n {
+            return Err(Error::parse(
+                FileRole::Dat,
+                0,
+                format!("裁剪区间非法: [{start}, {end}) 超出 0..{n}"),
+            ));
+        }
+        let keep = end - start;
+        data.sample_index.drain(..start);
+        data.sample_index.truncate(keep);
+        data.timestamp_us.drain(..start);
+        data.timestamp_us.truncate(keep);
+        for col in &mut data.analogs {
+            col.drain(..start);
+            col.truncate(keep);
+        }
+        for col in &mut data.statuses {
+            col.drain(..start);
+            col.truncate(keep);
+        }
+        // 重新编号采样点号（1 基，相对新起点）
+        for (i, v) in data.sample_index.iter_mut().enumerate() {
+            *v = (i + 1) as i32;
+        }
+        // 按剩余时间戳重算采样段；不足两点时清空段（无法派生采样率）
+        let nominal = self.config.sampling.freq;
+        self.config.sampling.segments =
+            recalculate_segments(&data.timestamp_us, nominal);
+        Ok(())
+    }
+
+    /// 编码为 CFF 单文件字节流（CFG+INF+DAT，丢弃 HDR/DMF，与 `CffFile::encode` 一致）。
+    pub fn to_cff_bytes(&self, dt: DataType) -> Result<Vec<u8>> {
+        let data = self
+            .data
+            .as_ref()
+            .ok_or_else(|| Error::parse(FileRole::Dat, 0, "文件不含采样数据"))?;
+        Ok(CffFile::encode(&self.config, data, self.inf.as_ref(), dt))
+    }
+
+    /// 写出为 CFF 单文件。
+    pub fn write_cff(&self, path: &Path, dt: DataType) -> Result<()> {
+        let bytes = self.to_cff_bytes(dt)?;
+        std::fs::write(path, bytes).map_err(|e| Error::Io {
+            path: path.to_path_buf(),
+            source: e,
+        })
     }
 }
 
