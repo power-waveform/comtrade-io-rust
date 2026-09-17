@@ -9,6 +9,20 @@
 
 （待定）
 
+## [0.1.0] - 2026-09-17
+
+首个成功发布到 crates.io 的版本。上一个打 tag 的 `0.0.3` 仅为内部开发里程碑，从未对外发布（发布流程当时有缺陷）；本版本在保留其全部内容的基础上，修复发布并统一对外版本号。
+
+### Fixed
+
+- 修复 crates.io 自动发布失败：多包 workspace 下根包 `cargo publish` 被拒，因全部子 crate 依赖仅声明 `path` 而无 `version`（cargo 报
+  `all dependencies must have a version requirement specified when publishing`）。为每个子 crate 依赖补 `version`，与 `path` 并存——本地构建走 `path`，发布时由 cargo 移除 `path` 改用 crates.io 上的对应版本解析。
+- `release` workflow 由单次 `cargo publish` 改为按依赖拓扑序逐个 `cargo publish -p` 发布全部 12 个 crate：
+  `cbase → cfg → dat → dmf → inf → cff → dfr → model → export → edit → comtrade-io → recognition`。
+  父 crate 只在被其依赖的子 crate 上线后才发布，避免解析到 crates.io 上的缺失版本。
+- 版本号由 `0.0.3` 统一升为 `0.1.0`（全 workspace 各 crate 与 `recognition` 对齐），作为首个正式对外发布版本；每位使用方以
+  `comtrade-io = "0.1"`（或其任意子 crate 名）从 crates.io 拉取。
+
 ## [0.0.3] - 2026-09-17
 
 ### Changed
@@ -93,7 +107,8 @@
 - GBK 编解码（`encoding_rs`）；可选 `gbk-builtin` feature 提供不完整的
   精简内置实现（CJK 区间解码为 `U+FFFD`，仅供实验）。
 
-[Unreleased]: https://github.com/PowerWaveForm/comtrade-io-rust/compare/v0.0.3...HEAD
+[Unreleased]: https://github.com/PowerWaveForm/comtrade-io-rust/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/PowerWaveForm/comtrade-io-rust/compare/v0.0.3...v0.1.0
 [0.0.3]: https://github.com/PowerWaveForm/comtrade-io-rust/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/PowerWaveForm/comtrade-io-rust/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/PowerWaveForm/comtrade-io-rust/releases/tag/v0.0.1
