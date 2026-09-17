@@ -1,6 +1,6 @@
 [package]
 name = "export"
-version = "0.0.3"
+version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
 description = "COMTRADE 导出器：Export trait 与 to_json/to_csv 写出"
@@ -8,10 +8,10 @@ license = "MIT"
 authors = ["sanguine (张松贵) <82018238@qq.com>"]
 
 [dependencies]
-cbase = { path = "../cbase" }
-cfg = { path = "../cfg" }
-cff = { path = "../cff" }
-model = { path = "../model" }
+cbase = { version = "0.1.0", path = "../cbase" }
+cfg = { version = "0.1.0", path = "../cfg" }
+cff = { version = "0.1.0", path = "../cff" }
+model = { version = "0.1.0", path = "../model" }
 
 [lib]
 name = "export"

@@ -18,4 +18,14 @@ jobs:
       - name: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish
+        # workspace 多 crate：必须按依赖拓扑序逐个发布，父 crate 才能从 crates.io
+        # 解析到已发布的子 crate 版本。顺序 = 被依赖者先行。
+        run: |
+          for crate in \
+            cbase cfg dat dmf inf cff dfr \
+            model export edit \
+            comtrade-io recognition
+          do
+            echo "== publish $crate =="
+            cargo publish -p "$crate"
+          done

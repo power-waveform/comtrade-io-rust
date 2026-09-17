@@ -1,6 +1,6 @@
 [package]
 name = "edit"
-version = "0.0.3"
+version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
 description = "COMTRADE 波形编辑：DataEdit trait（通道增删/重排/裁剪）"
@@ -8,13 +8,13 @@ license = "MIT"
 authors = ["sanguine (张松贵) <82018238@qq.com>"]
 
 [dependencies]
-cfg = { path = "../cfg" }
-cbase = { path = "../cbase" }
-dat = { path = "../dat" }
-model = { path = "../model" }
+cfg = { version = "0.1.0", path = "../cfg" }
+cbase = { version = "0.1.0", path = "../cbase" }
+dat = { version = "0.1.0", path = "../dat" }
+model = { version = "0.1.0", path = "../model" }
 
 [dev-dependencies]
-cff = { path = "../cff" }
+cff = { version = "0.1.0", path = "../cff" }
 
 [lib]
 name = "edit"

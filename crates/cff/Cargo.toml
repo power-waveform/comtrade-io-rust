@@ -1,6 +1,6 @@
 [package]
 name = "cff"
-version = "0.0.3"
+version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
 description = "COMTRADE CFF 单文件复合格式读写"
@@ -8,10 +8,10 @@ license = "MIT"
 authors = ["sanguine (张松贵) <82018238@qq.com>"]
 
 [dependencies]
-cbase = { path = "../cbase" }
-cfg = { path = "../cfg" }
-dat = { path = "../dat" }
-inf = { path = "../inf" }
+cbase = { version = "0.1.0", path = "../cbase" }
+cfg = { version = "0.1.0", path = "../cfg" }
+dat = { version = "0.1.0", path = "../dat" }
+inf = { version = "0.1.0", path = "../inf" }
 
 [lib]
 name = "cff"

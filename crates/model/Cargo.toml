@@ -1,6 +1,6 @@
 [package]
 name = "model"
-version = "0.0.3"
+version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
 description = "COMTRADE 顶层聚合模型：Comtrade 文件组加载与写出"
@@ -8,13 +8,13 @@ license = "MIT"
 authors = ["sanguine (张松贵) <82018238@qq.com>"]
 
 [dependencies]
-cbase = { path = "../cbase" }
-cfg = { path = "../cfg" }
-dat = { path = "../dat" }
-dmf = { path = "../dmf" }
-inf = { path = "../inf" }
-cff = { path = "../cff" }
-dfr = { path = "../dfr" }
+cbase = { version = "0.1.0", path = "../cbase" }
+cfg = { version = "0.1.0", path = "../cfg" }
+dat = { version = "0.1.0", path = "../dat" }
+dmf = { version = "0.1.0", path = "../dmf" }
+inf = { version = "0.1.0", path = "../inf" }
+cff = { version = "0.1.0", path = "../cff" }
+dfr = { version = "0.1.0", path = "../dfr" }
 
 [lib]
 name = "model"

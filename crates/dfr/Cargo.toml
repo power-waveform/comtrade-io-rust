@@ -1,6 +1,6 @@
 [package]
 name = "dfr"
-version = "0.0.3"
+version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
 description = "COMTRADE DFR 格式解析（只读）"
@@ -8,9 +8,9 @@ license = "MIT"
 authors = ["sanguine (张松贵) <82018238@qq.com>"]
 
 [dependencies]
-cbase = { path = "../cbase" }
-cfg = { path = "../cfg" }
-dat = { path = "../dat" }
+cbase = { version = "0.1.0", path = "../cbase" }
+cfg = { version = "0.1.0", path = "../cfg" }
+dat = { version = "0.1.0", path = "../dat" }
 
 [lib]
 name = "dfr"

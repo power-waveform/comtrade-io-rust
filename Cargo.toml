@@ -1,6 +1,6 @@
 [package]
 name = "comtrade-io"
-version = "0.0.3"
+version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
 description = "COMTRADE (IEEE C37.111) 故障录波文件解析与导出库"
@@ -25,16 +25,16 @@ exclude = [
 ]
 
 [dependencies]
-cbase = { path = "crates/cbase" }
-cfg = { path = "crates/cfg" }
-dat = { path = "crates/dat" }
-dmf = { path = "crates/dmf" }
-inf = { path = "crates/inf" }
-cff = { path = "crates/cff" }
-dfr = { path = "crates/dfr" }
-model = { path = "crates/model" }
-export = { path = "crates/export" }
-edit = { path = "crates/edit" }
+cbase = { version = "0.1.0", path = "crates/cbase" }
+cfg = { version = "0.1.0", path = "crates/cfg" }
+dat = { version = "0.1.0", path = "crates/dat" }
+dmf = { version = "0.1.0", path = "crates/dmf" }
+inf = { version = "0.1.0", path = "crates/inf" }
+cff = { version = "0.1.0", path = "crates/cff" }
+dfr = { version = "0.1.0", path = "crates/dfr" }
+model = { version = "0.1.0", path = "crates/model" }
+export = { version = "0.1.0", path = "crates/export" }
+edit = { version = "0.1.0", path = "crates/edit" }
 
 [features]
 default = []
