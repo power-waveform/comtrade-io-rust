@@ -20,12 +20,45 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         # workspace 多 crate：必须按依赖拓扑序逐个发布，父 crate 才能从 crates.io
         # 解析到已发布的子 crate 版本。顺序 = 被依赖者先行。
+        #
+        # 幂等 + 限流重试：
+        #   - already exists/uploaded  -> 已在线，跳过（run 可安全重跑）
+        #   - 429 / Too Many Requests   -> crates.io 新建 crate 短窗限流，等待后重试（sleep 递增）
+        #   - 其他错误                  -> 直接失败退出
         run: |
+          publish_one() {
+            local crate="$1" attempt=0 out rc
+            local logf
+            logf="$(mktemp)"
+            while :; do
+              attempt=$((attempt + 1))
+              echo "== publish $crate (attempt $attempt) =="
+              set +e
+              cargo publish -p "$crate" 2>&1 | tee "$logf"
+              rc=${PIPESTATUS[0]}
+              set -e
+              if [ "$rc" -eq 0 ]; then
+                echo "== $crate: ok =="
+                return 0
+              fi
+              if grep -qiE "already exists|already uploaded" "$logf"; then
+                echo "== $crate: already on crates.io, skip =="
+                return 0
+              fi
+              if grep -qiE "429|Too Many Requests|rate.?limit" "$logf"; then
+                local s=$((45 + 45 * attempt))
+                echo "== $crate: rate-limited, waiting ${s}s =="
+                sleep "$s"
+                continue
+              fi
+              echo "== $crate: fatal (non-rate-limit) =="
+              return 1
+            done
+          }
           for crate in \
             comtrade-cbase comtrade-cfg comtrade-dat comtrade-dmf comtrade-inf comtrade-cff \
             comtrade-dfr comtrade-model comtrade-export comtrade-edit \
             comtrade-io comtrade-recognition
           do
-            echo "== publish $crate =="
-            cargo publish -p "$crate"
+            publish_one "$crate" || exit 1
           done
