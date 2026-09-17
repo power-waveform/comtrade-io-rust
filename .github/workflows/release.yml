@@ -22,9 +22,9 @@ jobs:
         # 解析到已发布的子 crate 版本。顺序 = 被依赖者先行。
         run: |
           for crate in \
-            cbase cfg dat dmf inf cff dfr \
-            model export edit \
-            comtrade-io recognition
+            comtrade-cbase comtrade-cfg comtrade-dat comtrade-dmf comtrade-inf comtrade-cff \
+            comtrade-dfr comtrade-model comtrade-export comtrade-edit \
+            comtrade-io comtrade-recognition
           do
             echo "== publish $crate =="
             cargo publish -p "$crate"
