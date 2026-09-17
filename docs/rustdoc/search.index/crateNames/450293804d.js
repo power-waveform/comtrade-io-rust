@@ -1,1 +1,0 @@
-rd_("kcomtrade_io")

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["bus","generator","line","transformer"],"struct":["AccBran","AcvChn","EquipmentGroup"]};

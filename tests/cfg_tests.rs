@@ -1,11 +1,9 @@
 //! CFG 配置文件集成测试
 
-use comtrade_io::Config;
+mod common;
+use common::data_path;
 
-/// 获取测试数据路径
-fn data_path(name: &str) -> String {
-    format!("tests/data/{}", name)
-}
+use comtrade_io::Config;
 
 /// 按 GBK 编码读取测试文件
 fn read_gbk(name: &str) -> String {

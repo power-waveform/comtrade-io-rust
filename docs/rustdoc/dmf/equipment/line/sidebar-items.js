@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Capacitance","Igap","Impedance","Line","MutualInductance","Px"]};

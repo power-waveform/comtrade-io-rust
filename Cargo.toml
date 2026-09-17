@@ -17,21 +17,32 @@ exclude = [
     "examples/",
     "docs/",
     "tasks/",
+    "crates/",
+    "scripts/",
     "CLAUDE.md",
     "rustfmt.toml",
     ".github/",
-    "scripts/",
 ]
 
 [dependencies]
-encoding_rs = "0.8"
-
-[dev-dependencies]
+cbase = { path = "crates/cbase" }
+cfg = { path = "crates/cfg" }
+dat = { path = "crates/dat" }
+dmf = { path = "crates/dmf" }
+inf = { path = "crates/inf" }
+cff = { path = "crates/cff" }
+dfr = { path = "crates/dfr" }
+model = { path = "crates/model" }
+export = { path = "crates/export" }
+edit = { path = "crates/edit" }
 
 [features]
 default = []
-gbk-builtin = []
+gbk-builtin = ["cbase/gbk-builtin"]
 
 [workspace]
-members = [".", "crates/comtrade-recognition"]
+members = ["crates/*"]
 resolver = "2"
+
+[package.metadata.docs.rs]
+features = ["gbk-builtin"]

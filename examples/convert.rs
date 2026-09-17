@@ -4,7 +4,7 @@
 
 use std::time::Instant;
 
-use comtrade_io::{Comtrade, DataType, ExportFormat};
+use comtrade_io::{Comtrade, DataType, Export, ExportFormat};
 
 fn main() {
     let src_path = "tests/data/binary_1999.cfg";

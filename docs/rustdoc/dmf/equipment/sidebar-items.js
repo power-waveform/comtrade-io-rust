@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["WindingLocation"],"mod":["bus","generator","line","transformer"],"struct":["AccBran","AcvChn","BranchNum","Bus","Capacitance","EquipmentGroup","Exciter","Generator","Igap","Impedance","Line","MutualInductance","Px","SyncReactance","Transformer","TransformerWinding","Ufe","UfeChns","UnChns"]};

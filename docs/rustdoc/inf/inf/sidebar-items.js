@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["builder","equipment","from_config","parse","section","serialize"]};

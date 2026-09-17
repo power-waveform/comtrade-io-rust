@@ -1,0 +1,15 @@
+[package]
+name = "cfg"
+version = "0.0.3"
+edition = "2021"
+rust-version = "1.75"
+description = "COMTRADE CFG 配置文件解析与序列化"
+license = "MIT"
+authors = ["sanguine (张松贵) <82018238@qq.com>"]
+
+[dependencies]
+cbase = { path = "../cbase" }
+
+[lib]
+name = "cfg"
+path = "src/lib.rs"

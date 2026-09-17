@@ -7,26 +7,47 @@
 
 ## [Unreleased]
 
+（待定）
+
+## [0.0.3] - 2026-09-17
+
+### Changed
+
+- **仓库重构为多 crate Cargo workspace**：CFG / DAT / INF / DMF / CFF / DFR / 导出 / 编辑
+  拆分为 `crates/` 下的独立 crate（`cbase` / `cfg` / `dat` / `dmf` / `inf` / `cff` / `dfr` /
+  `model` / `export` / `edit` / `recognition`）。根包 `comtrade-io` 降为纯 facade，
+  re-export 全部子 crate。应用层既可整体依赖根包，也可单独依赖某一子 crate
+  （如仅用 `cfg`、仅用 `dat`）。各子 crate 依赖方向为有向无环图，无环形依赖。
+- 子 crate 命名去掉 `comtrade-` 前缀（如 `comtrade-cfg` → `cfg`）；`comtrade-recognition`
+  更名 `recognition`。对外根包接口名不变，应用层无需改动。
+- 版本统一为 `0.0.3`（`recognition` 由 `0.1.0` 对齐）。
+- **导出与编辑能力 trait 化**：`save` / `save_with` / `to_csv` / `to_json` 改为
+  `Export` trait（`export` crate）为 `Comtrade` 提供；`set_analog_column` /
+  `set_status_column` / `remove_channel` / `insert_analog_channel` /
+  `insert_status_channel` / `crop_rows` 改为 `DataEdit` trait（`edit` crate）。
+  消费方（wave-tauri `data_edit.rs`）导入 `comtrade_io::{Export, DataEdit}` 即可。
+- **大文件按功能拆分**：`cfg` 抽出 `version` / `data_type` / `tran_side` / `reference`
+  独立模块，`channel.rs` 只保留通道模型；`inf` / `dmf` / `dat` / `time` / `equipment`
+  等也按职责拆分，避免单文件数百上千行。全部逻辑原样搬迁，无解析/序列化语义差异。
+- **内联测试拆分**：cfg / dat 等 crate 的 `#[cfg(test)]` 测试移到各自 `tests/`
+  集成测试目录，生产文件不再混测试代码。测试数量与通过率不变。
+
 ### Added
 
-- 波形数据编辑写入口：`Comtrade` 新增 `set_analog_column` / `set_status_column`
+- 波形数据编辑写入口：`DataEdit` trait 提供 `set_analog_column` / `set_status_column`
   （按列替换工程值/状态值，校验长度与取值）、`remove_channel` / `insert_analog_channel` /
   `insert_status_channel`（增删通道时原子同步 CFG 通道定义、计数与 DAT 列并重编号 1 基
-  index）、`crop_rows`（保留 `[start,end)` 行区间并重算采样段）、`to_cff_bytes` /
-  `write_cff`（CFF 单文件便捷写出，封装 `CffFile::encode`）。新增 `ChannelKind` 枚举。
-  这些方法只改采样数据与通道定义，不重建设备拓扑（`equipment`），设备组引用由调用方负责。
-  纯新增，无破坏性变更。为 wave-tauri 波形数据编辑功能（方案 §4）提供底层写能力。
-
-- CFG/INF 中以 `PTRC$...`、`TCTR$...` 等形式出现的 IEC 61850 `ccbm`/`Monitored_Component`
-  参引统一转存到通道扩展 `reference`，不再误作为被监视元件参与设备归组；CFG→DMF
-  生成会保留状态量 `srcRef`。开关量设备关联增加按通道名称设备编号锚点的保守匹配，
-  无法确定时保持未关联，交由模型配置页面人工设置。
-
-- CFG/INF 通道 `ccbm`/`Monitored_Component` 兼容：对 `MUSV...$...`、`SVOUT...$...`、
-  `PTRC$...`、`TCTR$...` 等 IEC 61850 源引用不再作为被监视元件参与归组，解析时转存
-  到通道扩展 `reference` 字段；生成 DMF 时开关量的 `srcRef` 保留该引用。
-
-- 仓库改为 Cargo workspace，新增 `comtrade-recognition` crate，集中提供模拟量/开关量
+  index）、`crop_rows`（保留 `[start,end)` 行区间并重算采样段）。`Comtrade` 另提供
+  `to_cff_bytes` / `write_cff`（CFF 单文件便捷写出，封装 `CffFile::encode`）。
+  新增 `ChannelKind` 枚举。编辑只改采样数据与通道定义，不重建设备拓扑（`equipment`），
+  设备组引用由调用方负责。为 wave-tauri 波形数据编辑功能（方案 §4）提供底层写能力。
+- 公开导出 `DmfAnalogChannel` 与 `DmfStatusChannel`（原先仅 `DmfFile` 可见），
+  供调用方（wave-tauri 模型加载链）基于 CFG 构造最小 DMF。
+- CFG/INF 通道 `ccbm` / `Monitored_Component` 兼容：对 `MUSV...$...`、
+  `SVOUT...$...`、`PTRC$...`、`TCTR$...` 等 IEC 61850 源引用不再作为被监视元件参与
+  设备归组，解析时转存到通道扩展 `reference` 字段；生成 DMF 时开关量的 `srcRef`
+  保留该引用。
+- 仓库改为 Cargo workspace，新增 `recognition` crate，集中提供模拟量/开关量
   通道识别、备用通道判定、母线/线路/主变基础归组和 CFG→DMF 会话模型生成；
   `wave-tauri` 改为直接依赖该 crate，不再维护识别算法副本。
 - 模拟量与开关量采用独立备用规则。模拟量默认识别变比为 1、空名称、备用/模拟量/
@@ -35,20 +56,10 @@
 - 识别规则配置缺失、损坏或版本不支持时自动回退内置默认规则；人工导入仍使用严格
   校验，避免无效文件被当作成功导入。规则格式升级到 v2，v1 配置加载时自动补齐
   分类型备用规则并升级内存格式，不覆盖已有自定义规则。
-
 - DMF 模拟通道读取时，若交流通道省略 `au` 属性，按标准默认值补为 `1.0`；
-  `bu` 和 `idx_rlt` 缺省仍分别为 `0.0` 和 `0`。显式写入的 `au`（包括 0）保持
-  原值，避免覆盖用户配置。
-- `DmfAnalogChannel` 新增 `idx_rlt` 关联通道字段；DMF 解析同时兼容
-  `idx_rlt` 与早期 `idx_rl` 拼法，写出统一使用 `idx_rlt`，不再固定为 0。
-
-## [0.0.3] - 2026-08-31
-
-### Added
-
-- 公开导出 `DmfAnalogChannel` 与 `DmfStatusChannel`（原先仅 `DmfFile` 可见），
-  供调用方（wave-tauri 模型加载链）基于 CFG 构造最小 DMF。
-  纯新增，无破坏性变更。
+  `bu` 和 `idx_rlt` 缺省仍分别为 `0.0` 和 `0`。显式写入的 `au`（包括 0）保持原值。
+  `DmfAnalogChannel` 新增 `idx_rlt` 关联通道字段；DMF 解析兼容 `idx_rlt` 与早期
+  `idx_rl` 拼法，写出统一使用 `idx_rlt`，不再固定为 0。
 
 ## [0.0.2] - 2026-08-31
 
@@ -82,6 +93,7 @@
 - GBK 编解码（`encoding_rs`）；可选 `gbk-builtin` feature 提供不完整的
   精简内置实现（CJK 区间解码为 `U+FFFD`，仅供实验）。
 
-[Unreleased]: https://github.com/PowerWaveForm/comtrade-io-rust/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/PowerWaveForm/comtrade-io-rust/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/PowerWaveForm/comtrade-io-rust/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/PowerWaveForm/comtrade-io-rust/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/PowerWaveForm/comtrade-io-rust/releases/tag/v0.0.1

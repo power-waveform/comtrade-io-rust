@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["parse_exciter_attrs","parse_generator_attrs"]};

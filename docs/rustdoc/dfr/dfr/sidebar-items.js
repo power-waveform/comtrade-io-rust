@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DATA_MARKER","DEFAULT_END_POINT","DEFAULT_FULL_SCALE","DEFAULT_GRID_FREQ","DEFAULT_SAMPLES_PER_CYCLE","WNDR_TEXT_SIZE"],"fn":["device_header_size"],"struct":["DfrBinary","DfrFile","WndrSection"]};

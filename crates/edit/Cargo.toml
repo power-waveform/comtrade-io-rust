@@ -1,0 +1,21 @@
+[package]
+name = "edit"
+version = "0.0.3"
+edition = "2021"
+rust-version = "1.75"
+description = "COMTRADE 波形编辑：DataEdit trait（通道增删/重排/裁剪）"
+license = "MIT"
+authors = ["sanguine (张松贵) <82018238@qq.com>"]
+
+[dependencies]
+cfg = { path = "../cfg" }
+cbase = { path = "../cbase" }
+dat = { path = "../dat" }
+model = { path = "../model" }
+
+[dev-dependencies]
+cff = { path = "../cff" }
+
+[lib]
+name = "edit"
+path = "src/lib.rs"

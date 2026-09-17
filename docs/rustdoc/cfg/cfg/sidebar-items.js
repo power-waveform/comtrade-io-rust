@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_NOMINAL_FREQ"],"enum":["DataType","TranSide","Version"],"fn":["is_iec61850_reference","is_reference_like_ccbm","parse_f64_or"],"struct":["AnalogChannel","AnalogExt","ChannelCount","Config","Header","Sampling","SamplingTimeQuality","Segment","StatusChannel","StatusExt","TimeInfo"]};

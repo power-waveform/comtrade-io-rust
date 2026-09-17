@@ -4,7 +4,7 @@
 
 use std::time::Instant;
 
-use comtrade_io::{Comtrade, DataType, ExportFormat};
+use comtrade_io::{Comtrade, DataType, Export, ExportFormat};
 
 fn main() {
     let total = Instant::now();

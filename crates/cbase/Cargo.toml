@@ -1,0 +1,19 @@
+[package]
+name = "cbase"
+version = "0.0.3"
+edition = "2021"
+rust-version = "1.75"
+description = "COMTRADE 共享地基：错误/时间/编码/设备模型"
+license = "MIT"
+authors = ["sanguine (张松贵) <82018238@qq.com>"]
+
+[dependencies]
+encoding_rs = "0.8"
+
+[features]
+default = []
+gbk-builtin = []
+
+[lib]
+name = "cbase"
+path = "src/lib.rs"

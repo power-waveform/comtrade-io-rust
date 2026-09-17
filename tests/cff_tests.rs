@@ -1,10 +1,9 @@
 //! CFF 单文件集成测试
 
-use comtrade_io::CffFile;
+mod common;
+use common::data_path;
 
-fn data_path(name: &str) -> String {
-    format!("tests/data/{}", name)
-}
+use comtrade_io::CffFile;
 
 #[test]
 fn test_parse_cff_2013() {

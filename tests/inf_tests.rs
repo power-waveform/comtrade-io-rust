@@ -1,10 +1,9 @@
 //! INF 信息文件集成测试
 
-use comtrade_io::{InfFile, SectionKind};
+mod common;
+use common::data_path;
 
-fn data_path(name: &str) -> String {
-    format!("tests/data/{}", name)
-}
+use comtrade_io::{InfFile, SectionKind};
 
 #[test]
 fn test_parse_binary_inf() {

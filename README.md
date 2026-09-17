@@ -2,21 +2,23 @@
 
 COMTRADE（IEEE C37.111）故障录波文件解析与导出库，纯 Rust 实现。
 
-支持 CFG / DAT / INF / DMF / CFF / DFR 格式的读写，以及在 ASCII / BINARY / BINARY32 / FLOAT32 四种 DAT 格式间互转，并可导出为 JSON / CSV。
+支持 CFG / DAT / INF / DMF / CFF / DFR 格式的读写，以及在 ASCII / BINARY / BINARY32 / FLOAT32 四种 DAT 格式间互转，并可导出为 JSON / CSV，或就地编辑通道与采样数据后回写。
 
 ## 功能特性
 
 - **多格式读写**：CFG、DAT、INF、DMF、CFF（单文件复合）全双向；DFR 只读
 - **格式转换**：在 ASCII / BINARY / BINARY32 / FLOAT32 间互转，输出多文件或 CFF 单文件
 - **多种导出**：JSON、CSV、CFF、多文件回写
+- **波形编辑**：通道整列替换、通道增删、采样行裁剪（`DataEdit` trait）
 - **零重度依赖**：不依赖 serde / chrono / quick-xml；JSON、CSV、XML、时间解析均为手写。仅 `encoding_rs` 用于 GBK 编解码
 - **列式存储**：DAT 按通道列存储，对齐 DataFrame 按列访问模式
 - **往返保真**：各格式 `parse → serialize → reparse` 语义等价；未知内容保留原文
 - **错误即上下文**：统一 `Error` 枚举，解析错误携带行号/偏移，对外不 panic
+- **多 crate 可拆用**：仓库为 Cargo workspace，可整体依赖根包 facade，也可单独依赖任一格式子 crate（如仅用 `cfg` / `dat`）
 
 ## 文档
 
-- **API 参考（rustdoc）**：`docs/rustdoc/comtrade_io/index.html`（本地构建：`cargo doc --open`；发布后在线版见 docs.rs）
+- **API 参考（rustdoc）**：入口 [`docs/rustdoc/index.html`](docs/rustdoc/index.html)——包含根包 `comtrade_io` 及各子 crate（`cfg` / `dat` / `inf` / `dmf` / `cff` / `dfr` / `model` / `export` / `edit` / `recognition` / `cbase`）的全部接口。本地重建：`cargo doc --workspace --no-deps`，产物在 `target/doc`，镜像到 `docs/rustdoc`
 - **设计文档**：`docs/rust重构软件设计报告.md` / `docs/rust重构需求分析报告.md`（权威规格）
 
 ## 安装
@@ -25,7 +27,7 @@ COMTRADE（IEEE C37.111）故障录波文件解析与导出库，纯 Rust 实现
 
 ```toml
 [dependencies]
-comtrade-io = "0.0.1"
+comtrade-io = "0.0.3"
 ```
 
 > MSRV：Rust 1.75
@@ -37,7 +39,7 @@ comtrade-io = "0.0.1"
 ## 快速上手
 
 ```rust
-use comtrade_io::{Comtrade, DataType, ExportFormat};
+use comtrade_io::{Comtrade, DataType};
 
 // 从任一成员文件加载整组（CFG+DAT 必需，INF/DMF/HDR 自动探测兄弟文件）
 let ct = Comtrade::from_path("tests/data/binary_1999.cfg")?;
@@ -58,11 +60,13 @@ let changes = ct.changed_statuses();
 
 `from_path` 按扩展名分派：`.cff` / `.dfr` 走单文件模式，其余按 `parent + stem` 定位兄弟文件（大小写风格跟随输入）。
 
-## 格式转换
+## 格式转换与导出
 
-加载后可转成任意 DAT 格式，输出多文件或 CFF：
+加载后可转成任意 DAT 格式，输出多文件或 CFF。`save` / `write_to_dir` 由 `Export` trait 提供，需导入：
 
 ```rust
+use comtrade_io::{Comtrade, DataType, Export, ExportFormat};
+
 // 转成 FLOAT32 多文件（CFG + DAT + 可选 INF/DMF）
 ct.write_to_dir("out_dir".as_ref(), "out", DataType::Float32)?;
 
@@ -71,9 +75,13 @@ ct.save("out_dir/out".as_ref(), ExportFormat::MultiFile, DataType::Float32)?;
 
 // 转成 BINARY32 单文件 CFF
 ct.save("out.cff".as_ref(), ExportFormat::Cff, DataType::Binary32)?;
+
+// JSON / CSV（DataType 参数无影响，传任意值即可）
+ct.save("out.json".as_ref(), ExportFormat::Json, DataType::Ascii)?;
+ct.save("out.csv".as_ref(), ExportFormat::Csv, DataType::Ascii)?;
 ```
 
-四种格式说明：
+四种 DAT 格式说明：
 
 | 格式 | 模拟量存储 | 说明 |
 |---|---|---|
@@ -82,26 +90,37 @@ ct.save("out.cff".as_ref(), ExportFormat::Cff, DataType::Binary32)?;
 | BINARY32 | i32 整数 | 反算 raw |
 | FLOAT32 | f32 浮点 | 按 IEEE C37.111 直存工程值，不应用 mult/offset |
 
-## 导出
+## 波形编辑
+
+编辑能力由 `DataEdit` trait 提供，只改采样数据与通道定义，不重建设备拓扑（`equipment`）：
 
 ```rust
-// JSON / CSV
-ct.save("out.json".as_ref(), ExportFormat::Json, DataType::Ascii)?;
-ct.save("out.csv".as_ref(), ExportFormat::Csv, DataType::Ascii)?;
-```
+use comtrade_io::{Comtrade, DataEdit, ChannelKind};
 
-`DataType` 参数对 JSON / CSV 导出无影响（仅决定 COMTRADE DAT 格式），传任意值即可。
+let mut ct = Comtrade::from_path("tests/data/binary_1999.cfg")?;
+
+// 替换第 1 个模拟通道整列（0 基列下标，长度须与采样点数一致）
+let samples: Vec<f64> = vec![0.0; ct.data.as_ref().map(|d| d.len()).unwrap_or(0)];
+ct.set_analog_column(0, samples)?;
+
+// 删除一条状态量通道，CFG 定义与计数原子同步、其余通道自动重编号
+ct.remove_channel(ChannelKind::Status, 0)?;
+
+// 裁剪行区间 [start, end)，并重算采样段
+ct.crop_rows(0, 2400)?;
+```
 
 ## 构建与测试
 
 ```bash
-cargo build                       # 构建
-cargo test                        # 全部测试（集成 + 单元 + 文档测试）
-cargo test --test convert_tests   # 单个集成测试文件
-cargo test test_float32           # 按名运行单个测试
-cargo run --example basic         # 运行基础用法示例
-cargo run --example convert       # 运行格式转换示例
-cargo run --example cff           # 运行 CFF 解析示例
+cargo build                        # 构建整个 workspace
+cargo test                         # 全部测试（集成 + 单元 + 文档测试）
+cargo doc --workspace --no-deps    # 本地 API 文档（target/doc）
+cargo test --test convert_tests    # 单个集成测试文件
+cargo test test_float32            # 按名运行单个测试
+cargo run --example basic          # 运行基础用法示例
+cargo run --example convert        # 运行格式转换示例
+cargo run --example cff            # 运行 CFF 解析示例
 ```
 
 ## 示例
@@ -114,29 +133,30 @@ cargo run --example cff           # 运行 CFF 解析示例
 
 ## 项目结构
 
-仓库采用 Cargo workspace。根包 `comtrade-io` 负责格式解析/写出，
-`comtrade-recognition` 负责可独立复用的通道识别和 CFG→DMF 生成，应用层无需复制识别逻辑。
+仓库采用 Cargo workspace，根包 `comtrade-io` 是纯 facade（re-export 各子 crate）。
+应用层可整体依赖根包，也可只依赖某个子 crate（如仅解析 CFG 用 `cfg`，仅做编辑用 `edit`）。
 
 ```
-src/
-├── lib.rs          # 公共 API 再导出
-├── comtrade.rs     # Comtrade 顶层聚合 + 文件组定位
-├── cfg/            # CFG 配置读写（Config / AnalogChannel / StatusChannel）
-├── dat/            # DAT 数据读写（ASCII / binary 列式存储）
-├── inf/            # INF 信息文件（INI 风格节）
-├── dmf/            # DMF 设备模型（手写 XML 读写）
-├── cff/            # CFF 单文件（字节级段切分）
-├── dfr/            # DFR 只读（WNDR 头 + 二进制区）
-├── exporters/      # JSON / CSV / CFF / 多文件导出
-├── encoding.rs     # UTF-8 / GBK / cp1251 编解码
-├── time.rs         # COMTRADE 时间解析（微秒精度，无 chrono）
-├── equipment.rs    # 设备拓扑模型（Bus/Line/Transformer）
-└── error.rs        # 统一 Error / Result
+comtrade-io (根，facade)           # 只 re-export，消费方统一入口
 crates/
-└── comtrade-recognition/ # 通道识别、备用判定、设备归组、TOML 规则
-tests/data/         # 测试样本（含 GBK 文件、CFF、DMF）
-examples/           # 用法示例
+├── cbase/        # 共享地基：error / time / encoding / equipment 拓扑
+├── cfg/          # CFG 配置读写（Config / AnalogChannel / StatusChannel）
+├── dat/          # DAT 数据读写（ASCII / BINARY / BINARY32 / FLOAT32，列式）
+├── inf/          # INF 信息文件（INI 风格节）
+├── dmf/          # DMF 设备模型（手写 XML 读写）
+├── cff/          # CFF 单文件（字节级段切分）
+├── dfr/          # DFR 只读（WNDR 头 + 二进制区）
+├── model/        # 聚合 Comtrade + ComtradePaths / ChannelKind / ChannelView / HdrFile
+├── export/       # Export trait：JSON / CSV / CFF / 多文件导出
+├── edit/         # DataEdit trait：通道列替换 / 增删 / 裁剪
+└── recognition/  # 通道识别、备用判定、设备归组、CFG→DMF、TOML 规则
+examples/         # 用法示例
+tests/            # 跨格式 / 整组加载集成测试（tests/data/ 为样本）
+docs/             # API 文档（rustdoc）+ 权威设计规格（md）
 ```
+
+各子 crate 依赖方向为有向无环图——格式 crate → `cbase`；`model` 依赖全部格式 crate；
+`export` / `edit` 依赖 `model`；根 facade 依赖全部；`recognition` 依赖根 facade。
 
 ## 许可证
 

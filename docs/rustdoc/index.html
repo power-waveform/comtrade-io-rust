@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>comtrade-io-rust · Crate API 文档索引</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    max-width: 72rem; margin: 2rem auto; padding: 0 1.5rem; line-height: 1.6;
+  }
+  h1 { border-bottom: 2px solid var(--border, #ddd); padding-bottom: .4rem; }
+  h2 { margin-top: 1.8rem; }
+  ul { padding-left: 1.4rem; }
+  li { margin: .35rem 0; }
+  code { background: var(--bg, #f3f4f6); padding: .1rem .4rem; border-radius: 4px; }
+  .crate { font-family: ui-monospace, Consolas, monospace; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>comtrade-io-rust · Crate API 文档</h1>
+<p>
+  COMTRADE（IEEE C37.111）故障录波文件解析与导出库。仓库为 Cargo workspace，
+  根包 <code>comtrade-io</code> 是纯 <em>facade</em>（re-export 各子 crate），
+  应用可按需整体依赖根包、或只依赖其中某个子 crate。
+</p>
+
+<h2>入口</h2>
+<ul>
+  <li>
+    <span class="crate">comtrade_io</span>
+    — 根合并包（facade，推荐入口）：<a href="./comtrade_io/index.html">API 文档</a>
+  </li>
+</ul>
+
+<h2>子模块 crates</h2>
+<table>
+  <tr><th>Crate</th><th>职责</th></tr>
+  <tr><td><a href="./cbase/index.html">cbase</a></td><td>共享地基：错误、时间、编码、设备拓扑</td></tr>
+  <tr><td><a href="./cfg/index.html">cfg</a></td><td>CFG 配置文件解析 / 序列化</td></tr>
+  <tr><td><a href="./dat/index.html">dat</a></td><td>DAT 数据文件读写（ASCII / BINARY / BINARY32 / FLOAT32）</td></tr>
+  <tr><td><a href="./inf/index.html">inf</a></td><td>INF 信息文件（段式读写）</td></tr>
+  <tr><td><a href="./dmf/index.html">dmf</a></td><td>DMF 设备模型（XML 读写）</td></tr>
+  <tr><td><a href="./cff/index.html">cff</a></td><td>CFF 单文件复合格式</td></tr>
+  <tr><td><a href="./dfr/index.html">dfr</a></td><td>DFR 文件（只读）</td></tr>
+  <tr><td><a href="./model/index.html">model</a></td><td>聚合模型 <code>Comtrade</code>：加载整组、写目录</td></tr>
+  <tr><td><a href="./export/index.html">export</a></td><td>导出能力 <code>Export</code> trait：JSON / CSV / CFF / 多文件</td></tr>
+  <tr><td><a href="./edit/index.html">edit</a></td><td>编辑能力 <code>DataEdit</code> trait：通道替换 / 增删 / 裁剪</td></tr>
+  <tr><td><a href="./recognition/index.html">recognition</a></td><td>通道识别、备用判定、CFG→DMF 模型生成（TOML 规则）</td></tr>
+</table>
+
+<p>
+  本地重新生成：<code>cargo doc --workspace --no-deps</code>，产物位于
+  <code>target/doc</code>，镜像到 <code>docs/rustdoc</code>。
+</p>
+</body>
+</html>

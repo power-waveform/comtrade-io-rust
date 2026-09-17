@@ -1,0 +1,17 @@
+[package]
+name = "recognition"
+version = "0.0.3"
+edition = "2021"
+rust-version = "1.75"
+description = "CFG channel recognition and CFG-to-DMF model generation for COMTRADE"
+license = "MIT"
+
+[dependencies]
+comtrade-io = { path = "../.." }
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+
+[lib]
+name = "recognition"
+path = "src/lib.rs"

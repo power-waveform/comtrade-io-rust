@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["recalculate_segments"],"struct":["DatFile","StatusChange"]};

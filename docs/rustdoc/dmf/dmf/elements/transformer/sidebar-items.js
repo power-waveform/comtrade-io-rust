@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["parse_transformer_attrs","parse_winding_attrs"]};

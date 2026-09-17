@@ -1,0 +1,16 @@
+[package]
+name = "inf"
+version = "0.0.3"
+edition = "2021"
+rust-version = "1.75"
+description = "COMTRADE INF 信息文件解析与序列化（含设备模型）"
+license = "MIT"
+authors = ["sanguine (张松贵) <82018238@qq.com>"]
+
+[dependencies]
+cbase = { path = "../cbase" }
+cfg = { path = "../cfg" }
+
+[lib]
+name = "inf"
+path = "src/lib.rs"

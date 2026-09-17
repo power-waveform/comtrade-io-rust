@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BranchNum","Exciter","Generator","SyncReactance","Ufe","UfeChns","UnChns"]};

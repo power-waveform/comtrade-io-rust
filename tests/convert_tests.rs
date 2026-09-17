@@ -1,12 +1,11 @@
 //! 跨格式转换集成测试：4 种 DAT 格式互转（多文件）+ CFF 跨格式往返。
 
+mod common;
+use common::data_path;
+
 use std::path::PathBuf;
 
-use comtrade_io::{Comtrade, DataType, ExportFormat};
-
-fn data_path(name: &str) -> String {
-    format!("tests/data/{}", name)
-}
+use comtrade_io::{Comtrade, DataType, Export, ExportFormat};
 
 /// 临时目录（已创建），测试结束由调用方清理。
 fn tmp_dir(name: &str) -> PathBuf {

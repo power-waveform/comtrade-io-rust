@@ -1,0 +1,18 @@
+[package]
+name = "export"
+version = "0.0.3"
+edition = "2021"
+rust-version = "1.75"
+description = "COMTRADE 导出器：Export trait 与 to_json/to_csv 写出"
+license = "MIT"
+authors = ["sanguine (张松贵) <82018238@qq.com>"]
+
+[dependencies]
+cbase = { path = "../cbase" }
+cfg = { path = "../cfg" }
+cff = { path = "../cff" }
+model = { path = "../model" }
+
+[lib]
+name = "export"
+path = "src/lib.rs"

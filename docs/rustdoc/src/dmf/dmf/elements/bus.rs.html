@@ -1,0 +1,23 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates\dmf\src\dmf\elements\bus.rs`."><title>bus.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../..\../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../..\../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../..\../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../..\../" data-static-root-path="../../..\../static.files/" data-current-crate="dmf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.97.1 (8bab26f4f 2026-07-14)" data-channel="1.97.1" data-search-js="search-fd9372ac.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../..\../static.files/storage-41dd4d93.js"></script><script defer src="../../..\../static.files/src-script-813739b1.js"></script><script defer src="../../..\../src-files.js"></script><script defer src="../../..\../static.files/main-fcd733ba.js"></script><noscript><link rel="stylesheet" href="../../..\../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../..\../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../..\../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">dmf\dmf\elements/</div>bus.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! 母线元素属性解析
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span>cbase::equipment::{AcvChn, Bus};
+<a href=#4 id=4 data-nosnippet>4</a>
+<a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span><span class="kw">super</span>::common::{attr_f64, attr_str, attr_usize};
+<a href=#6 id=6 data-nosnippet>6</a>
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">pub fn </span>parse_bus_attrs(attrs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str)]) -&gt; Bus {
+<a href=#8 id=8 data-nosnippet>8</a>    Bus {
+<a href=#9 id=9 data-nosnippet>9</a>        idx: attr_usize(attrs, <span class="string">"idx"</span>),
+<a href=#10 id=10 data-nosnippet>10</a>        name: attr_str(attrs, <span class="string">"bus_name"</span>),
+<a href=#11 id=11 data-nosnippet>11</a>        src_ref: attr_str(attrs, <span class="string">"srcRef"</span>),
+<a href=#12 id=12 data-nosnippet>12</a>        sys_id: String::new(),
+<a href=#13 id=13 data-nosnippet>13</a>        v_rtg: attr_f64(attrs, <span class="string">"VRtg"</span>, <span class="number">0.0</span>),
+<a href=#14 id=14 data-nosnippet>14</a>        v_rtg_snd: attr_f64(attrs, <span class="string">"VRtgSnd"</span>, <span class="number">0.0</span>),
+<a href=#15 id=15 data-nosnippet>15</a>        tv_pos: attr_str(attrs, <span class="string">"VRtgSnd_Pos"</span>),
+<a href=#16 id=16 data-nosnippet>16</a>        is_location: attr_str(attrs, <span class="string">"is_location"</span>),
+<a href=#17 id=17 data-nosnippet>17</a>        bus_uuid: attr_str(attrs, <span class="string">"bus_uuid"</span>),
+<a href=#18 id=18 data-nosnippet>18</a>        acv: AcvChn::default(),
+<a href=#19 id=19 data-nosnippet>19</a>        ana_chns: Vec::new(),
+<a href=#20 id=20 data-nosnippet>20</a>        sta_chns: Vec::new(),
+<a href=#21 id=21 data-nosnippet>21</a>    }
+<a href=#22 id=22 data-nosnippet>22</a>}
+</code></pre></div></section></main></body></html>

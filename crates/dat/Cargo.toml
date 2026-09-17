@@ -1,0 +1,16 @@
+[package]
+name = "dat"
+version = "0.0.3"
+edition = "2021"
+rust-version = "1.75"
+description = "COMTRADE DAT 采样数据文件解析与写出（列式存储）"
+license = "MIT"
+authors = ["sanguine (张松贵) <82018238@qq.com>"]
+
+[dependencies]
+cbase = { path = "../cbase" }
+cfg = { path = "../cfg" }
+
+[lib]
+name = "dat"
+path = "src/lib.rs"

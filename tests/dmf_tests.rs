@@ -1,10 +1,9 @@
 //! DMF 设备模型文件集成测试
 
-use comtrade_io::DmfFile;
+mod common;
+use common::data_path;
 
-fn data_path(name: &str) -> String {
-    format!("tests/data/{}", name)
-}
+use comtrade_io::DmfFile;
 
 #[test]
 fn test_parse_binary_1999_dmf() {

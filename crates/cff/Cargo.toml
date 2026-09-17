@@ -1,0 +1,18 @@
+[package]
+name = "cff"
+version = "0.0.3"
+edition = "2021"
+rust-version = "1.75"
+description = "COMTRADE CFF 单文件复合格式读写"
+license = "MIT"
+authors = ["sanguine (张松贵) <82018238@qq.com>"]
+
+[dependencies]
+cbase = { path = "../cbase" }
+cfg = { path = "../cfg" }
+dat = { path = "../dat" }
+inf = { path = "../inf" }
+
+[lib]
+name = "cff"
+path = "src/lib.rs"

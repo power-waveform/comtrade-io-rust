@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SectionKind"],"fn":["parse_sections"],"struct":["InfFile","Section"]};

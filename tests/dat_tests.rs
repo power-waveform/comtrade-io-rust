@@ -1,10 +1,9 @@
 //! DAT 数据文件集成测试
 
-use comtrade_io::{Config, DatFile, DataType};
+mod common;
+use common::data_path;
 
-fn data_path(name: &str) -> String {
-    format!("tests/data/{}", name)
-}
+use comtrade_io::{Config, DatFile, DataType};
 
 fn load_cfg(name: &str) -> Config {
     let bytes = std::fs::read(data_path(name)).unwrap();
