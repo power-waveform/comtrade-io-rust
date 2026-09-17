@@ -22,6 +22,11 @@
   父 crate 只在被其依赖的子 crate 上线后才发布，避免解析到 crates.io 上的缺失版本。
 - 版本号由 `0.0.3` 统一升为 `0.1.0`（全 workspace 各 crate 与 `recognition` 对齐），作为首个正式对外发布版本；每位使用方以
   `comtrade-io = "0.1"`（或其任意子 crate 名）从 crates.io 拉取。
+- 修复子 crate 短名在 crates.io 被占用：`cfg` / `dat` / `model` / `inf` / `cff` / `dfr` / `export` / `edit` / `cbase` 等通用短名
+  早被别家注册，无法作为独立 crate 发布。子 crate 的**注册名（package name）**统一加 `comtrade-` 前缀（`comtrade-cfg` /
+  `comtrade-dat` / …），而 **lib crate 名保持短名**（`cfg` / `dat` / …）——因此 Rust 代码 `use cfg::…`、根 facade 的 re-export
+  均无需改动；依赖声明 key 则同步对齐新注册名（`comtrade-cfg = "0.1"`）。消费方可整体依赖 `comtrade-io`，也可单独依赖任一
+  `comtrade-*` 子 crate 并按短名 `use`。
 
 ## [0.0.3] - 2026-09-17
 

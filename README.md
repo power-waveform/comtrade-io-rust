@@ -14,7 +14,7 @@ COMTRADE（IEEE C37.111）故障录波文件解析与导出库，纯 Rust 实现
 - **列式存储**：DAT 按通道列存储，对齐 DataFrame 按列访问模式
 - **往返保真**：各格式 `parse → serialize → reparse` 语义等价；未知内容保留原文
 - **错误即上下文**：统一 `Error` 枚举，解析错误携带行号/偏移，对外不 panic
-- **多 crate 可拆用**：仓库为 Cargo workspace，可整体依赖根包 facade，也可单独依赖任一格式子 crate（如仅用 `cfg` / `dat`）
+- **多 crate 可拆用**：仓库为 Cargo workspace，可整体依赖根包 facade，也可单独依赖任一格式子 crate。发布到 crates.io 时注册名统一带 `comtrade-` 前缀（`comtrade-cfg` / `comtrade-dat` …，因短名多已被占用），但 Rust 里的 crate 引用仍是短名 `cfg` / `dat`。单独使用时在 Cargo.toml 声明 `comtrade-cfg = "0.1"`，代码中 `use cfg::…` 即可。
 
 ## 文档
 

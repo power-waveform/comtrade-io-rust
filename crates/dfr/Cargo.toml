@@ -1,5 +1,5 @@
 [package]
-name = "dfr"
+name = "comtrade-dfr"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
@@ -8,9 +8,9 @@ license = "MIT"
 authors = ["sanguine (张松贵) <82018238@qq.com>"]
 
 [dependencies]
-cbase = { version = "0.1.0", path = "../cbase" }
-cfg = { version = "0.1.0", path = "../cfg" }
-dat = { version = "0.1.0", path = "../dat" }
+comtrade-cbase = { version = "0.1.0", path = "../cbase" }
+comtrade-cfg = { version = "0.1.0", path = "../cfg" }
+comtrade-dat = { version = "0.1.0", path = "../dat" }
 
 [lib]
 name = "dfr"

@@ -1,5 +1,5 @@
 [package]
-name = "export"
+name = "comtrade-export"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
@@ -8,10 +8,10 @@ license = "MIT"
 authors = ["sanguine (张松贵) <82018238@qq.com>"]
 
 [dependencies]
-cbase = { version = "0.1.0", path = "../cbase" }
-cfg = { version = "0.1.0", path = "../cfg" }
-cff = { version = "0.1.0", path = "../cff" }
-model = { version = "0.1.0", path = "../model" }
+comtrade-cbase = { version = "0.1.0", path = "../cbase" }
+comtrade-cfg = { version = "0.1.0", path = "../cfg" }
+comtrade-cff = { version = "0.1.0", path = "../cff" }
+comtrade-model = { version = "0.1.0", path = "../model" }
 
 [lib]
 name = "export"

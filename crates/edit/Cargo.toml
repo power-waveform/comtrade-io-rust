@@ -1,5 +1,5 @@
 [package]
-name = "edit"
+name = "comtrade-edit"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
@@ -8,13 +8,13 @@ license = "MIT"
 authors = ["sanguine (张松贵) <82018238@qq.com>"]
 
 [dependencies]
-cfg = { version = "0.1.0", path = "../cfg" }
-cbase = { version = "0.1.0", path = "../cbase" }
-dat = { version = "0.1.0", path = "../dat" }
-model = { version = "0.1.0", path = "../model" }
+comtrade-cfg = { version = "0.1.0", path = "../cfg" }
+comtrade-cbase = { version = "0.1.0", path = "../cbase" }
+comtrade-dat = { version = "0.1.0", path = "../dat" }
+comtrade-model = { version = "0.1.0", path = "../model" }
 
 [dev-dependencies]
-cff = { version = "0.1.0", path = "../cff" }
+comtrade-cff = { version = "0.1.0", path = "../cff" }
 
 [lib]
 name = "edit"

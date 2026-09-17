@@ -12,84 +12,125 @@ dependencies = [
 ]
 
 [[package]]
-name = "cbase"
-version = "0.1.0"
-dependencies = [
- "encoding_rs",
-]
-
-[[package]]
-name = "cff"
-version = "0.1.0"
-dependencies = [
- "cbase",
- "cfg",
- "dat",
- "inf",
-]
-
-[[package]]
-name = "cfg"
-version = "0.1.0"
-dependencies = [
- "cbase",
-]
-
-[[package]]
 name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
+name = "comtrade-cbase"
+version = "0.1.0"
+dependencies = [
+ "encoding_rs",
+]
+
+[[package]]
+name = "comtrade-cff"
+version = "0.1.0"
+dependencies = [
+ "comtrade-cbase",
+ "comtrade-cfg",
+ "comtrade-dat",
+ "comtrade-inf",
+]
+
+[[package]]
+name = "comtrade-cfg"
+version = "0.1.0"
+dependencies = [
+ "comtrade-cbase",
+]
+
+[[package]]
+name = "comtrade-dat"
+version = "0.1.0"
+dependencies = [
+ "comtrade-cbase",
+ "comtrade-cfg",
+]
+
+[[package]]
+name = "comtrade-dfr"
+version = "0.1.0"
+dependencies = [
+ "comtrade-cbase",
+ "comtrade-cfg",
+ "comtrade-dat",
+]
+
+[[package]]
+name = "comtrade-dmf"
+version = "0.1.0"
+dependencies = [
+ "comtrade-cbase",
+]
+
+[[package]]
+name = "comtrade-edit"
+version = "0.1.0"
+dependencies = [
+ "comtrade-cbase",
+ "comtrade-cff",
+ "comtrade-cfg",
+ "comtrade-dat",
+ "comtrade-model",
+]
+
+[[package]]
+name = "comtrade-export"
+version = "0.1.0"
+dependencies = [
+ "comtrade-cbase",
+ "comtrade-cff",
+ "comtrade-cfg",
+ "comtrade-model",
+]
+
+[[package]]
+name = "comtrade-inf"
+version = "0.1.0"
+dependencies = [
+ "comtrade-cbase",
+ "comtrade-cfg",
+]
+
+[[package]]
 name = "comtrade-io"
 version = "0.1.0"
 dependencies = [
- "cbase",
- "cff",
- "cfg",
- "dat",
- "dfr",
- "dmf",
- "edit",
- "export",
- "inf",
- "model",
+ "comtrade-cbase",
+ "comtrade-cff",
+ "comtrade-cfg",
+ "comtrade-dat",
+ "comtrade-dfr",
+ "comtrade-dmf",
+ "comtrade-edit",
+ "comtrade-export",
+ "comtrade-inf",
+ "comtrade-model",
 ]
 
 [[package]]
-name = "dat"
+name = "comtrade-model"
 version = "0.1.0"
 dependencies = [
- "cbase",
- "cfg",
+ "comtrade-cbase",
+ "comtrade-cff",
+ "comtrade-cfg",
+ "comtrade-dat",
+ "comtrade-dfr",
+ "comtrade-dmf",
+ "comtrade-inf",
 ]
 
 [[package]]
-name = "dfr"
+name = "comtrade-recognition"
 version = "0.1.0"
 dependencies = [
- "cbase",
- "cfg",
- "dat",
-]
-
-[[package]]
-name = "dmf"
-version = "0.1.0"
-dependencies = [
- "cbase",
-]
-
-[[package]]
-name = "edit"
-version = "0.1.0"
-dependencies = [
- "cbase",
- "cff",
- "cfg",
- "dat",
- "model",
+ "comtrade-io",
+ "regex",
+ "serde",
+ "toml",
 ]
 
 [[package]]
@@ -108,16 +149,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
-name = "export"
-version = "0.1.0"
-dependencies = [
- "cbase",
- "cff",
- "cfg",
- "model",
-]
-
-[[package]]
 name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -134,31 +165,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "inf"
-version = "0.1.0"
-dependencies = [
- "cbase",
- "cfg",
-]
-
-[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
-
-[[package]]
-name = "model"
-version = "0.1.0"
-dependencies = [
- "cbase",
- "cff",
- "cfg",
- "dat",
- "dfr",
- "dmf",
- "inf",
-]
 
 [[package]]
 name = "proc-macro2"
@@ -176,16 +186,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"
 dependencies = [
  "proc-macro2",
-]
-
-[[package]]
-name = "recognition"
-version = "0.1.0"
-dependencies = [
- "comtrade-io",
- "regex",
- "serde",
- "toml",
 ]
 
 [[package]]
